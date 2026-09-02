@@ -11,6 +11,7 @@ ComplyPilot helps an exporter find invoice, supplier, VAT-schedule and Customs-e
 The repository currently contains a self-contained front-end prototype:
 
 - `ComplyPilot-RefundShield-UI-Demo.html`
+- [`DEVELOPMENT_AGENT_BRIEF.md`](DEVELOPMENT_AGENT_BRIEF.md) contains the implementation contract, API shape, agent responsibilities and acceptance checklist for the working MVP.
 - No build process or package installation is required.
 - All data is synthetic and all interactions run locally in the browser.
 
