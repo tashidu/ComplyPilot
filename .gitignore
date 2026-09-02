@@ -1,0 +1,18 @@
+# Generated and temporary artifacts
+tmp/
+output/
+frontend/
+
+# Local operating-system files
+.DS_Store
+Thumbs.db
+
+# Editor and local environment files
+.vscode/
+.idea/
+.env
+.env.*
+
+# Python cache
+__pycache__/
+*.pyc
