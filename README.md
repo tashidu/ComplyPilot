@@ -23,6 +23,26 @@ npm run build
 npm start
 ```
 
+### Run with Docker Compose
+
+Docker Compose runs the production standalone build and includes the Chromium
+runtime required by the Playwright GUI filing agent.
+
+```bash
+# Optional: create .env for live Qwen or MuleRun credentials.
+# The app also runs honestly in demo/local mode without these values.
+cp .env.example .env
+
+docker compose up --build
+# open http://localhost:3000
+```
+
+Stop the application with `docker compose down`. Set `APP_PORT=8080` in `.env`
+if port 3000 is already occupied. Keep `GUI_AGENT_HEADLESS=true` inside Docker;
+run the app directly on the host if you need a visible Playwright browser window.
+The Compose service passes secrets at runtime and does not bake them into the
+image.
+
 `ComplyPilot-RefundShield-UI-Demo.html` remains in the repository as the original
 static visual reference. [`DEVELOPMENT_AGENT_BRIEF.md`](DEVELOPMENT_AGENT_BRIEF.md)
 holds the implementation contract, API shape and acceptance checklist.
@@ -33,9 +53,14 @@ Copy [`.env.example`](.env.example) to `.env.local`. Never commit a populated en
 
 | Variable | Purpose |
 | --- | --- |
+| `APP_PORT` | Host port exposed by Docker Compose; defaults to `3000`. |
 | `DASHSCOPE_API_KEY` | Model Studio API key. Read server-side only. |
 | `DASHSCOPE_BASE_URL` | OpenAI-compatible endpoint. Differs by region. |
 | `QWEN_MODEL` | Vision-language model id used for invoice extraction. |
+| `GUI_AGENT_HEADLESS` | Keep `true` in Docker; use `false` for a visible host browser. |
+| `WORKFLOW_MODE` | `local` or `mulerun`. |
+| `MULERUN_API_URL` | Published MuleRun workflow webhook. |
+| `MULERUN_API_KEY` | Bearer token for the MuleRun workflow. |
 
 Without a key the application still runs: every response is clearly labelled
 `DEMO FALLBACK` in the header and the reason is written to the audit trail. The
@@ -297,13 +322,16 @@ The team remains responsible for architecture decisions, regulatory interpretati
 
 ## Three-minute demo flow
 
+The complete recording checklist, timed narration and click sequence are in
+[`DEMO_VIDEO_SCRIPT.md`](DEMO_VIDEO_SCRIPT.md).
+
 1. Show `LKR 4.2M` of claim value under review, readiness `68/100` and three blockers.
-2. Upload synthetic invoices, a VAT schedule, supplier snapshot and sample CUSDEC file.
-3. Open the Evidence Graph and explain why the structurally valid schedule is not yet evidence-ready.
-4. Switch the Regulatory Time Machine to the 1 October 2026 rule profile.
-5. Resolve the three blockers and show the score move from `68` to `89`.
-6. Compare the standard 45-day scenario with a simulated Notice 2 scenario.
-7. Complete the human-approved mock filing and replay the audit trail.
+2. Upload one synthetic invoice image and the supplied demo VAT Schedule CSV; describe the actual reconciliation result shown on screen.
+3. Open the Evidence Graph and connect a source document to its rule and required human action.
+4. Switch the Regulatory Time Machine to the 1 October 2026 rule profile and show the official-source metadata.
+5. Run the what-if action and describe the score displayed; the untouched fixture moves from `68` to `89`, while a matched uploaded schedule can add three more points.
+6. Export the Refund Evidence Passport, then start the GUI filing agent from Mock filing.
+7. Enter the demo OTP at the human checkpoint and finish on the replayable Audit trail.
 
 ## MVP boundaries
 
@@ -328,11 +356,11 @@ Deliberately excluded:
 
 ## Roadmap
 
-1. Connect the UI to a Qwen-powered document-extraction service.
+1. Evaluate and improve the existing Qwen extraction on a held-out synthetic dataset.
 2. Publish the MuleRun pre-flight workflow and move workflow state into durable storage.
 3. Build a professionally reviewed, versioned Sri Lankan VAT rules pack.
 4. Extend the working VAT Schedule CSV parser to the official workbook variants, ledger files and CUSDEC evidence.
-5. Evaluate field-level extraction accuracy on a held-out synthetic dataset.
+5. Add regression tests for each official schedule variant and regulatory rule pack.
 6. Pilot with authorised finance and tax professionals before handling production data.
 
 ## Primary references

@@ -1,0 +1,32 @@
+name: complypilot
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: complypilot-refundshield:local
+    init: true
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    environment:
+      DASHSCOPE_API_KEY: "${DASHSCOPE_API_KEY:-}"
+      DASHSCOPE_BASE_URL: "${DASHSCOPE_BASE_URL:-https://dashscope-intl.aliyuncs.com/compatible-mode/v1}"
+      QWEN_MODEL: "${QWEN_MODEL:-qwen-vl-plus}"
+      GUI_AGENT_HEADLESS: "${GUI_AGENT_HEADLESS:-true}"
+      WORKFLOW_MODE: "${WORKFLOW_MODE:-local}"
+      MULERUN_API_URL: "${MULERUN_API_URL:-}"
+      MULERUN_API_KEY: "${MULERUN_API_KEY:-}"
+    # Chromium is more reliable with a larger shared-memory allocation.
+    shm_size: "1gb"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
