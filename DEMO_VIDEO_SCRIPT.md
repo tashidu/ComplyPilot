@@ -38,6 +38,10 @@ If the schedule says **Invoice required**, explain that this is the correct resu
 
 > This is more than an invoice generator. Every finding links the evidence, the versioned rule and the corrective action, so a finance reviewer can understand why the agent blocked the case.
 
+Before leaving the Overview, open **Ask your data** and choose **Why is this case
+blocked?** Point out that the answer uses the current run, links only allow-listed
+official sources and labels live Qwen versus the deterministic fallback.
+
 ### 1:15-1:40 — Regulatory Time Machine
 
 **Action:** Open **Rules & time machine**. Switch between the historical and `1 October 2026` profiles, then briefly show the Government Data Layer.

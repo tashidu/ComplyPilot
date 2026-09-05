@@ -23,6 +23,7 @@ In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 Oc
 - **Deterministic scoring, not model-generated:** An LLM never produces the readiness score. It is plain TypeScript, so every point is reproducible by hand.
 - **Live VAT Schedule Reconciliation:** A user-uploaded CSV is parsed deterministically and matched to the extracted invoice by invoice number, supplier TIN, net value, VAT and gross value. Every variance is visible and routed to the human gate.
 - **Refund Evidence Passport:** The prototype exports a source-dated JSON evidence manifest containing findings, rule sources, workflow trace and audit history, plus a SHA-256 content digest.
+- **Grounded Data Copilot:** A run-aware chatbox answers from the current score, findings, invoice extraction, schedule reconciliation and allow-listed official-source metadata, with clear live-Qwen/fallback disclosure.
 
 ### Technical Brief
 - **Application:** Next.js 15 (App Router), React 19, TypeScript. API routes serve as the backend; there is no separate service.

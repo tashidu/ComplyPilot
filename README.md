@@ -57,6 +57,7 @@ Copy [`.env.example`](.env.example) to `.env.local`. Never commit a populated en
 | `DASHSCOPE_API_KEY` | Model Studio API key. Read server-side only. |
 | `DASHSCOPE_BASE_URL` | OpenAI-compatible endpoint. Differs by region. |
 | `QWEN_MODEL` | Vision-language model id used for invoice extraction. |
+| `QWEN_CHAT_MODEL` | Text model used by the grounded Data Copilot. |
 | `GUI_AGENT_HEADLESS` | Keep `true` in Docker; use `false` for a visible host browser. |
 | `WORKFLOW_MODE` | `local` or `mulerun`. |
 | `MULERUN_API_URL` | Published MuleRun workflow webhook. |
@@ -75,6 +76,17 @@ dropzone. The header badge shows `LIVE QWEN` when a live extraction succeeded an
 Supported uploads are JPEG, PNG, WebP and BMP images, up to 10 MB. PDFs must be
 rendered to an image first; a PDF upload is rejected with an explanation rather
 than being silently mislabelled.
+
+### Grounded Data Copilot
+
+The floating **Ask your data** chatbox answers from the latest in-memory analysis
+run: readiness score, findings, structured invoice extraction, VAT Schedule
+reconciliation and the bundled official-source summaries. It never sends the raw
+invoice image to the chat endpoint. With `DASHSCOPE_API_KEY` configured it uses
+`QWEN_CHAT_MODEL`; otherwise it returns clearly labelled deterministic demo
+answers. Source links are selected from the application's allow-listed government
+data pack, not from model-generated URLs. Answers remain decision support and are
+not tax advice or an official IRD conclusion.
 
 ## Workflow: MuleRun or local
 
@@ -194,6 +206,7 @@ reads `LIVE QWEN` after uploading an invoice image.
 - **Evidence Graph** - traces a finding from its source document through the applied rule to the required human action.
 - **Live VAT Schedule CSV reconciliation** - parses a user upload and compares invoice number, supplier TIN, net value, VAT and gross value without letting an LLM alter the figures.
 - **Refund Evidence Passport** - exports the evidence, findings, rule sources, workflow trace and audit history with a SHA-256 content digest.
+- **Grounded Data Copilot** - answers questions about the current run, invoice extraction, schedule match and bundled official sources, with live-Qwen/fallback disclosure.
 - **What-if simulator** - resolves blockers and updates the score, evidence value and readiness status immediately.
 - **45-day Clock Twin** - compares a normal statutory scenario with a simulated Notice 2 correction scenario.
 - **Human-approved mock filing** - keeps the authorised user in control and never accesses the live IRD portal.

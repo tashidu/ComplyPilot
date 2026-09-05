@@ -8,6 +8,7 @@ import { OverviewView } from "@/components/overview-view";
 import { RulesView } from "@/components/rules-view";
 import { Sidebar, type ViewId } from "@/components/sidebar";
 import { Modal, Toast } from "@/components/ui";
+import { DataCopilot } from "@/components/data-copilot";
 import {
   type AuditEvent,
   INITIAL_AUDIT,
@@ -428,6 +429,19 @@ export default function Page() {
 
       <Toast message={toast.message} show={toast.show} />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} auditCount={audit.length} />
+      <DataCopilot
+        runId={analyzeResult.runId}
+        contextVersion={`${analyzeResult.mode}:${analyzeResult.workflow.mode}:${analyzeResult.score.total}:${analyzeResult.invoice?.invoiceNumber?.value ?? "no-invoice"}:${analyzeResult.invoice?.grossTotal?.value ?? "no-total"}:${analyzeResult.scheduleReconciliation.status}:${analyzeResult.findings.map((finding) => `${finding.id}-${finding.status}`).join("|")}`}
+        onAuditEvent={(mode) =>
+          addAudit(
+            "agent",
+            "Data Copilot answered from the current run",
+            mode === "LIVE_QWEN"
+              ? "Qwen answered using the structured case and official-reference context."
+              : "A deterministic grounded fallback answered because live Qwen was unavailable.",
+          )
+        }
+      />
     </div>
   );
 }

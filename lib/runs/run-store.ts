@@ -19,6 +19,8 @@ export type StoredRun = {
   mode: AnalyzeResult["mode"];
   fallbackReason: string | null;
   scheduleEvidence: AnalyzeResult["scheduleEvidence"];
+  /** Latest deterministic result used to ground the run-aware data copilot. */
+  analysis: AnalyzeResult;
   createdAt: number;
 };
 
@@ -43,6 +45,7 @@ export function rememberRun(result: AnalyzeResult): void {
     mode: result.mode,
     fallbackReason: result.fallbackReason,
     scheduleEvidence: result.scheduleEvidence,
+    analysis: result,
     createdAt: Date.now(),
   });
 }

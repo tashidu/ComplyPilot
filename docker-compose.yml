@@ -13,6 +13,7 @@ services:
       DASHSCOPE_API_KEY: "${DASHSCOPE_API_KEY:-}"
       DASHSCOPE_BASE_URL: "${DASHSCOPE_BASE_URL:-https://dashscope-intl.aliyuncs.com/compatible-mode/v1}"
       QWEN_MODEL: "${QWEN_MODEL:-qwen-vl-plus}"
+      QWEN_CHAT_MODEL: "${QWEN_CHAT_MODEL:-qwen-plus}"
       GUI_AGENT_HEADLESS: "${GUI_AGENT_HEADLESS:-true}"
       WORKFLOW_MODE: "${WORKFLOW_MODE:-local}"
       MULERUN_API_URL: "${MULERUN_API_URL:-}"
