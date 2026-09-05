@@ -277,7 +277,12 @@ export default function Page() {
               }
             >
               <i className="dot" />
-              Workflow: {analyzeResult.workflow.mode === "LIVE_MULERUN" ? "LIVE MULERUN" : "LOCAL FALLBACK"}
+              Workflow:{" "}
+              {analyzeResult.workflow.mode === "LIVE_MULERUN"
+                ? "LIVE MULERUN"
+                : analyzeResult.workflow.muleRunAttempted
+                  ? "LOCAL FALLBACK"
+                  : "LOCAL ORCHESTRATOR"}
             </span>
             <button className="button" onClick={resetDemo}>
               Reset

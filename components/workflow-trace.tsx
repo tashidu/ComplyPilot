@@ -11,6 +11,12 @@ const STATUS_MARK: Record<string, string> = {
 export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
   const { workflow } = result;
   const live = workflow.mode === "LIVE_MULERUN";
+  // Only call it a fallback when MuleRun was genuinely tried and failed.
+  const label = live
+    ? "LIVE MULERUN"
+    : workflow.muleRunAttempted
+      ? "LOCAL FALLBACK"
+      : "LOCAL ORCHESTRATOR";
 
   return (
     <article className="card pad">
@@ -25,7 +31,7 @@ export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
         </div>
         <span className={`pill ${live ? "live" : "fallback"}`}>
           <i className="dot" />
-          {live ? "LIVE MULERUN" : "LOCAL FALLBACK"}
+          {label}
         </span>
       </div>
 
@@ -56,7 +62,8 @@ export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
 
       {workflow.fallbackReason ? (
         <p className="subtle" style={{ marginTop: 8 }}>
-          MuleRun not used: {workflow.fallbackReason}
+          {workflow.muleRunAttempted ? "MuleRun failed: " : "MuleRun not used: "}
+          {workflow.fallbackReason}
         </p>
       ) : null}
     </article>

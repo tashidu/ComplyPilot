@@ -127,8 +127,10 @@ export async function runOrchestrator(
   let workflowMode: WorkflowInfo["mode"] = "LOCAL";
   let executionId: string | null = null;
   let workflowFallbackReason: string | null = null;
+  let muleRunAttempted = false;
 
   if (process.env.WORKFLOW_MODE === "mulerun") {
+    muleRunAttempted = true;
     const started = performance.now();
     try {
       if (!isMuleRunConfigured()) {
@@ -172,7 +174,8 @@ export async function runOrchestrator(
       console.warn("[orchestrator] MuleRun unavailable, using local orchestrator:", workflowFallbackReason);
     }
   } else {
-    workflowFallbackReason = "WORKFLOW_MODE is not set to mulerun.";
+    workflowFallbackReason =
+      "WORKFLOW_MODE is not set to mulerun, so the local orchestrator ran.";
   }
 
   // 4. Refund Readiness Agent. The score is always computed here, never taken
@@ -201,6 +204,7 @@ export async function runOrchestrator(
       mode: workflowMode,
       executionId,
       fallbackReason: workflowMode === "LIVE_MULERUN" ? null : workflowFallbackReason,
+      muleRunAttempted,
       trace,
       gate,
     },

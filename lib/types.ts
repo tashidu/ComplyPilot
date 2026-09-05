@@ -60,6 +60,9 @@ export type WorkflowInfo = {
   executionId: string | null;
   /** Why the local orchestrator ran instead of MuleRun. Null when MuleRun ran. */
   fallbackReason: string | null;
+  /** True only when a MuleRun call was actually made, so the UI can tell
+   *  "never configured" apart from "tried and failed". */
+  muleRunAttempted: boolean;
   trace: TraceStage[];
   gate: "NEEDS_HUMAN" | "READY_TO_FILE";
 };
