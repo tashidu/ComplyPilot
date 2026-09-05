@@ -135,10 +135,21 @@ export async function runOrchestrator(
   if (docFinding) allFindings.push(docFinding);
   allFindings.push(...reconciliation.findings);
 
-  // Apply resolved status based on human actions
-  allFindings = allFindings.map((finding) =>
-    resolvedBlockers.includes(finding.id) ? { ...finding, status: "resolved" as const } : finding,
-  );
+  // Apply resolved status based on human actions.
+  //
+  // The schedule check is the exception: while reconciliation is waiting for an
+  // invoice there is nothing for a human to have fixed, so it cannot be marked
+  // resolved. Allowing it would award the matched-schedule points - and show a
+  // higher score - while the panel still reads "invoice extraction required".
+  const scheduleAwaitsInvoice = reconciliation.schedule?.status === "NEEDS_INVOICE";
+  allFindings = allFindings.map((finding) => {
+    if (finding.id === "schedule" && scheduleAwaitsInvoice) {
+      return { ...finding, status: "inactive" as const };
+    }
+    return resolvedBlockers.includes(finding.id)
+      ? { ...finding, status: "resolved" as const }
+      : finding;
+  });
 
   // 3. Hand the structured case to MuleRun when it is configured. A failure is
   // never fatal - the local rules below still produce the same shaped result.

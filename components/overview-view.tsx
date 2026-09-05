@@ -163,13 +163,21 @@ export function OverviewView({
                       resolved || inactive ? "ok" : finding.severity === "high" ? "alert" : "warn"
                     }`}
                   >
-                    {inactive ? "Not applicable" : resolved ? "Resolved" : finding.tag}
+                    {inactive
+                      ? finding.id === "schedule"
+                        ? "Invoice required"
+                        : "Not applicable"
+                      : resolved
+                        ? "Resolved"
+                        : finding.tag}
                   </span>
                   <span className="tag">{finding.ruleId}</span>
                 </div>
                 <p>
                   {inactive
-                    ? "This check becomes active when the 1 October 2026 rule profile is selected."
+                    ? finding.id === "schedule"
+                      ? finding.description
+                      : "This check becomes active when the 1 October 2026 rule profile is selected."
                     : resolved
                       ? "Evidence was updated and the readiness calculation was re-run."
                       : finding.description}
