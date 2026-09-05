@@ -6,33 +6,105 @@ ComplyPilot helps an exporter find invoice, supplier, VAT-schedule and Customs-e
 
 > ComplyPilot does **not** predict the Inland Revenue Department's official Low/Medium/High risk category and does not guarantee a VAT refund date. The score is a transparent internal readiness proxy.
 
-## Interactive UI demo
+## Run the application
 
-The repository currently contains a self-contained front-end prototype:
-
-- `ComplyPilot-RefundShield-UI-Demo.html`
-- [`DEVELOPMENT_AGENT_BRIEF.md`](DEVELOPMENT_AGENT_BRIEF.md) contains the implementation contract, API shape, agent responsibilities and acceptance checklist for the working MVP.
-- No build process or package installation is required.
-- All data is synthetic and all interactions run locally in the browser.
-
-### Quick start
-
-Option 1 - open the file directly:
-
-1. Download or clone the repository.
-2. Open `ComplyPilot-RefundShield-UI-Demo.html` in a modern browser.
-
-Option 2 - run a local server:
+The working application is a Next.js App Router project. Requires Node.js 20 or later.
 
 ```bash
-python -m http.server 4173
+npm install
+cp .env.example .env.local   # then add your Model Studio key
+npm run dev                  # http://localhost:3000
 ```
 
-Then visit:
+Production build:
 
-```text
-http://127.0.0.1:4173/ComplyPilot-RefundShield-UI-Demo.html
+```bash
+npm run build
+npm start
 ```
+
+`ComplyPilot-RefundShield-UI-Demo.html` remains in the repository as the original
+static visual reference. [`DEVELOPMENT_AGENT_BRIEF.md`](DEVELOPMENT_AGENT_BRIEF.md)
+holds the implementation contract, API shape and acceptance checklist.
+
+### Environment variables
+
+Copy [`.env.example`](.env.example) to `.env.local`. Never commit a populated env file.
+
+| Variable | Purpose |
+| --- | --- |
+| `DASHSCOPE_API_KEY` | Model Studio API key. Read server-side only. |
+| `DASHSCOPE_BASE_URL` | OpenAI-compatible endpoint. Differs by region. |
+| `QWEN_MODEL` | Vision-language model id used for invoice extraction. |
+
+Without a key the application still runs: every response is clearly labelled
+`DEMO FALLBACK` in the header and the reason is written to the audit trail. The
+demo never presents fixture data as a live model response.
+
+### Live extraction vs demo fallback
+
+Model Studio is called only when a document is uploaded through the evidence
+dropzone. The header badge shows `LIVE QWEN` when a live extraction succeeded and
+`DEMO FALLBACK` otherwise, with the specific reason on hover.
+
+Supported uploads are JPEG, PNG, WebP and BMP images, up to 10 MB. PDFs must be
+rendered to an image first; a PDF upload is rejected with an explanation rather
+than being silently mislabelled.
+
+## Deploy to Alibaba Cloud ECS
+
+The build produces a standalone server bundle (`output: "standalone"`), so the
+instance does not need the full `node_modules` tree at runtime.
+
+Use a **Singapore** region. Mainland China regions require ICP filing before a
+custom domain can serve traffic.
+
+**1. Create the instance.** ECS, Ubuntu 22.04, 2 vCPU / 4 GB is ample. In the
+security group, allow inbound TCP 22, 80 and 443.
+
+**2. Install Node.js 20 and a process manager.**
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs nginx
+sudo npm install -g pm2
+```
+
+**3. Build and start the app.**
+
+```bash
+git clone https://github.com/tashidu/ComplyPilot.git
+cd ComplyPilot
+npm ci
+npm run build
+
+# the standalone server needs the static assets copied alongside it
+cp -r .next/static .next/standalone/.next/static
+
+cd .next/standalone
+DASHSCOPE_API_KEY=... DASHSCOPE_BASE_URL=... QWEN_MODEL=... \
+  PORT=3000 pm2 start server.js --name complypilot
+pm2 save && pm2 startup
+```
+
+**4. Put nginx in front.** In `/etc/nginx/sites-available/default`, replace the
+`location /` block with:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection 'upgrade';
+    proxy_set_header Host $host;
+    proxy_cache_bypass $http_upgrade;
+}
+```
+
+Then `sudo nginx -t && sudo systemctl reload nginx`.
+
+**5. Verify** the public IP in an incognito window, and confirm the header badge
+reads `LIVE QWEN` after uploading an invoice image.
 
 ## Demo features
 

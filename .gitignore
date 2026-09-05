@@ -3,6 +3,13 @@ tmp/
 output/
 frontend/
 
+# Node / Next.js
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
 # Local operating-system files
 .DS_Store
 Thumbs.db
@@ -12,6 +19,7 @@ Thumbs.db
 .idea/
 .env
 .env.*
+!.env.example
 
 # Python cache
 __pycache__/
