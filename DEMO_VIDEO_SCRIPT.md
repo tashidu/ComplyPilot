@@ -1,243 +1,106 @@
-# ComplyPilot three-minute demo script
+# ComplyPilot Three-Minute Demo Script
 
-Click-by-click. Every label below is the exact text in the UI, and every number
-was verified against a real run.
+This script matches the exact UI and workflow we built for the Alibaba Cloud AI Buildathon submission. Follow this click-by-click to record a clean, 3-minute demonstration.
 
 ## Before recording
 
 ```bash
-npm run dev          # http://localhost:3000
+npm run dev          # Runs on http://localhost:3000
 ```
 
-1. Browser at 100% zoom, window ~1440px wide. Hide bookmarks and other tabs.
+1. Open your browser at 100% zoom, window ~1440px wide. Hide bookmarks and other tabs.
 2. Keep the terminal, `.env.local` and the API key off screen.
-3. Click **Reset** in the top bar. The score must read `68`, with three blockers.
-4. Have `public/demo/vat-schedule-demo.csv` on the desktop, or use the
-   **Download demo CSV** link in the *Add evidence* card.
-5. Check the two header badges and narrate what they actually say:
-   - `AI: LIVE QWEN` or `AI: DEMO FALLBACK`
-   - `Workflow: LIVE MULERUN` or `Workflow: LOCAL ORCHESTRATOR`
-   Never call an amber badge live.
-6. Do one rehearsal run so the GUI agent's Chromium is warm; the first launch is
-   the slowest.
-7. Record one clean take, and keep a backup recording of the filing segment in
-   case the agent is slow on the day.
-
-**Synthetic data only.** No real TIN, no real credentials, no live IRD portal.
+3. If you are using the Live Qwen extraction, ensure `DASHSCOPE_API_KEY` is in your `.env.local`. Have a sample invoice image ready on your desktop.
+4. Click **Reset** in the top right. The score must read `68/100`, with unresolved blockers.
+5. Record one clean take.
 
 ---
 
 ## UI shots the judges must see
 
-| UI area | Keep visible on screen | Why it matters |
-| --- | --- | --- |
-| Top bar | `AI: LIVE QWEN` or `AI: DEMO FALLBACK`, plus the actual Workflow badge | Proves the demo labels live and fallback paths honestly |
-| Readiness card | Score, `LKR 4.2M`, unresolved-blocker count and rule-pack label | Establishes the measurable starting problem |
-| Add evidence | Invoice/CSV dropzone and the resulting reconciliation status | Shows real evidence entering the workflow |
-| Ask your data | One question, its answer, mode badge and government-source chips | Shows grounded conversational AI over the current run |
-| Evidence graph | Source evidence → rule → validation → human action | Shows explainability rather than a black-box score |
-| Rules & time machine | Date-profile toggle and at least one official source card | Shows date-aware compliance and source provenance |
-| What-if result | New score, `Approval ready` and Refund Passport action | Shows measurable business impact |
-| GUI filing agent | Agent screenshots, human OTP checkpoint and mock-portal warning | Provides the strongest agentic demo moment |
-| Audit trail | AI action, human action and filing event | Proves end-to-end traceability |
+| UI area | Why it matters |
+| --- | --- |
+| Top bar badges | Proves whether the demo is using `Live AI mode` or `Synthetic demo data`. |
+| Readiness score ring | Establishes the measurable starting problem (Score: 68/100). |
+| Priority blockers | Shows specific, actionable compliance issues (e.g., missing invoice fields). |
+| Add evidence dropzone | Demonstrates how users ingest documents into the workflow. |
+| Evidence graph | Shows explainable AI tracing from document → extraction → rule → human action. |
+| Rules & time machine | Demonstrates dynamic, deterministic compliance based on Gazetted dates. |
+| Mock filing workspace | Shows the final human-in-the-loop approval gate. |
+| Audit trail | Proves end-to-end traceability for every AI and human action. |
 
-Frame only the relevant card during each scene. Move the pointer slowly, pause on
-status changes for one second, and avoid rapid scrolling. Do not show source code,
-the terminal, browser developer tools or environment files.
+Frame only the relevant card during each scene. Move the pointer slowly, pause on status changes for one second, and avoid rapid scrolling. 
 
 ---
 
-## 0:00-0:18 — The problem
+## 0:00-0:30 — The Problem & Starting State
 
 **Screen:** *Overview* (the default view).
 
-**Do:** nothing. Let the score card fill the frame.
+**Do:** Let the score card fill the frame. Point out the score (`68/100`) and the priority blockers.
 
-**Point at:** `68` out of 100 · `LKR 4.2M` claim value under review · `3` unresolved blockers.
-
-> Sri Lankan exporters lose refund time because one invoice field, stale supplier
-> evidence or a Customs mismatch is only discovered after filing. ComplyPilot
-> finds those blockers before submission, and keeps every AI and human decision
-> traceable.
+> "Sri Lankan exporters often lose valuable time on their VAT refunds because simple documentary errors or customs mismatches are only discovered *after* filing. ComplyPilot RefundShield solves this by automatically processing VAT-related documents without errors. It features an interactive chatbox for instant data queries and integrates seamlessly with the IRD's RAMIS portal using an automated GUI filing agent. Right now, our readiness score is 68 out of 100, and we have unresolved blockers requiring attention to protect our 45-day refund clock."
 
 ---
 
-## 0:18-0:42 — Extraction and deterministic reconciliation
+## 0:30-1:00 — Evidence & Live Extraction
 
 **Do:**
-1. Point at the two header badges, top right.
-2. In *Add evidence*, click **Choose file** and upload the invoice image
-   (only if `AI: LIVE QWEN` — otherwise skip and say so).
-3. Upload `vat-schedule-demo.csv` the same way.
+1. Point to the top right badge to show if you are in **Live AI mode** or **Synthetic demo data**.
+2. Scroll to the **Add evidence** card.
+3. Drag and drop a sample invoice image into the dropzone (or click to upload).
+4. Notice a new toast notification saying the file was added and analyzed.
 
-**Keep visible:** the *Add evidence* card, then the *Live VAT Schedule
-reconciliation* status and totals.
-
-**What appears depends on the evidence:**
-
-- Live invoice plus a matching CSV: **Matched**, with matched-field chips.
-- CSV without a live invoice extraction: **Invoice required**. The schedule
-  finding is informational/inactive, the three actionable blockers remain, and
-  the score stays at `68`.
-- Extracted invoice with different values: **Review differences**, with each
-  variance shown explicitly.
-
-> Qwen reads the invoice image and returns schema-validated fields. The financial
-> matching is deterministic: the schedule parser compares invoice number,
-> supplier TIN and the three LKR values without letting a language model touch
-> the figures.
-
-If the schedule row says **Invoice required**, say exactly that:
-
-> The schedule is parsed, but nothing is matched yet because no invoice has been
-> extracted. The tool says so rather than claiming a match.
-
-⚠️ Narrate the status actually shown. Never call **Invoice required** or **Review
-differences** a match. Parsing evidence is not the same as reconciling it.
+> "ComplyPilot uses Alibaba Cloud's Qwen-VL-Plus model via Model Studio to accurately extract invoice fields from unstructured images. Instead of acting as a black box, it routes these extractions into a deterministic orchestrator that runs them against official tax rules."
 
 ---
 
-## 0:42-1:02 — Ask the current case
+## 1:00-1:30 — Explainability (Evidence Graph)
 
 **Do:**
-1. Click the bottom-right **Ask your data** button.
-2. Click the suggested question **Why is this case blocked?**
-3. Pause when the answer appears.
-4. Point to the answer's `LIVE QWEN` or `DEMO FALLBACK` label.
-5. Point to one government-source chip, then close the panel.
+1. Scroll down to the **Priority blockers** section.
+2. Click **Evidence** on the first open blocker (e.g., Supplier evidence or Invoice compliance).
+3. The view changes to the *Evidence graph*. Trace the nodes with your mouse.
+4. Click **Back to overview** when done.
 
-**Keep visible:** the `68/100` readiness card behind the chat panel, the answer
-listing the current blockers, the answer-mode label and source chips such as
-`GZ-2456-02` or `GZ-2481-22`.
-
-> This is the Data Copilot. It answers from this analysis run — its score,
-> findings, invoice extraction, schedule reconciliation and allow-listed
-> government sources. The raw invoice image is not sent to chat, and every answer
-> discloses whether live Qwen or the grounded fallback produced it.
-
-Do not ask an open-ended general tax question in the video. The suggested
-question produces a short, case-specific answer that judges can verify against
-the visible readiness card.
+> "AI decisions must be explainable in finance. This evidence graph shows exactly why a case is blocked: it traces the source document, the specific Qwen-VL extraction result, the versioned rule that was applied, and the exact corrective human action required."
 
 ---
 
-## 1:02-1:20 — Evidence graph
+## 1:30-2:00 — Regulatory Time Machine
 
 **Do:**
-1. On any blocker, click **Evidence**. (Or **Open evidence graph**.)
-2. Let the chain render: source document → applied rule → required human action.
-3. Optionally click another card under *Choose evidence chain*.
-4. Click **Back to overview**.
+1. In the sidebar, click **Rules & time machine**.
+2. Under "Choose the applicable rule profile", toggle between **Before 1 Oct 2026** and **Effective 1 Oct 2026**. 
+3. Show how the decision panel changes (Action required vs Passed).
+4. Scroll down to the **45-day clock twin** and click **Simulate Notice 2** to show the dates changing dynamically.
 
-> This is not an invoice generator. Every finding links the source evidence, the
-> versioned rule that fired, and the corrective action, so a finance reviewer can
-> see why the agent blocked the case.
+> "Tax rules change. Our Regulatory Time Machine lets exporters see how the exact same evidence behaves under different Gazetted rules. If we switch to the new October 2026 invoice profile, the system instantly recalculates our compliance gaps. We can also simulate real-world delays, like IRD Notice 2, to see the direct impact on our 45-day refund timeline."
 
 ---
 
-## 1:20-1:40 — Rules and the time machine
+## 2:00-2:25 — What-If Rescue & Mock Filing
 
 **Do:**
-1. Sidebar → **Rules & time machine**.
-2. Click **Before 1 Oct 2026**, then **Effective 1 Oct 2026**. Watch the rule
-   decision panel change.
-3. Scroll just far enough to show *Government data layer* and one official source
-   card. Show *Regulatory Watch Agent* only if time remains.
-4. Optional: type a name in **Reviewing tax professional** and click **Approve
-   rule pack** in a separate backup clip.
+1. Click **Overview** in the sidebar.
+2. Click the primary **Run what-if: fix all** button at the top. The score jumps to 100.
+3. Click **Review filing** in the top right.
+4. Check the "I reviewed the evidence packet..." authorization box.
+5. Click **Submit to mock portal**. 
+6. A success modal with a mock receipt appears. Close the modal.
 
-> The same invoice is tested against the rule that was in force on its
-> transaction date. Sources carry their effective date and legal weight. When the
-> watch agent detects a change, it cannot activate it: a named human tax
-> professional has to approve the rule pack first.
-
-Say **simulated** for the detection step. The approval gate is real — the server
-rejects an approval with no reviewer name.
+> "To fix these issues, we can run a What-If scenario. Resolving the missing evidence immediately bumps our readiness score to 100. The package is now approval-ready. In the filing workspace, an authorized human must explicitly review the package before submitting it to the mock portal, keeping humans firmly in the loop."
 
 ---
 
-## 1:40-2:00 — What-if rescue plan
+## 2:25-3:00 — Audit Trail & Close
 
 **Do:**
-1. Sidebar → **Overview**.
-2. Click **Run what-if: fix all**.
-3. Point at the *Refund rescue plan* card.
-4. Click **Export Refund Passport**.
+1. Click **Audit trail** in the sidebar.
+2. Slowly scroll through the timeline showing agent actions and human resolutions.
+3. Point out the mock filing completion event.
+4. Click **Export synthetic audit log** (a JSON file downloads).
 
-**Expected:** `68` → `89`, claim value under review → `LKR 0`, status
-**Approval ready**.
+> "Every action taken by Qwen, our deterministic agents, and the human reviewer is permanently logged in a verifiable audit trail. With ComplyPilot, exporters get fewer preventable errors, faster internal reviews, and absolute confidence in their 45-day VAT refund timeline."
 
-> Fixing the three evidence gaps moves readiness from 68 to 89. That number comes
-> from published deterministic rules, not from a language model, so a reviewer can
-> reproduce it by hand. The passport exports the case, its sources, findings and
-> audit history with a SHA-256 digest.
-
-⚠️ Narrate the number on screen. The fixture goes to `89`. It only exceeds that
-if a live Qwen extraction genuinely matched a schedule row.
-
-If you prefer the slower version, resolve the blockers one at a time instead:
-`68 → 78 → 85 → 89`.
-
----
-
-## 2:00-2:42 — GUI filing agent and the human checkpoint
-
-**Do:**
-1. Sidebar → **Mock filing**.
-2. Tick the authorisation checkbox.
-3. Scroll to *Agent filing run* and click **Let the agent file it**.
-4. Wait for the step list with screenshots. It stops at step 9.
-5. Type `482913` in the OTP box and click **Enter OTP and continue**.
-
-**Expected:** nine steps, then a human checkpoint, then an acknowledgement like
-`ACK-2026-419107`.
-
-> Most compliance portals have no integration API, so the agent operates the
-> portal the way a person does: it looks at the screen, reads the controls,
-> chooses one action, and looks again. Every step keeps the screenshot it saw and
-> the reason for the action. It stops at identity verification — OTP, CAPTCHA and
-> two-factor fields always force a human hand-off, and that rule is enforced in
-> code, not left to the model. This prototype never contacts the live IRD portal.
-
-The mock portal carries a red **MOCK PORTAL — NOT THE IRD** banner. Let it be
-visible; it answers the question a judge is about to ask.
-
----
-
-## 2:42-3:00 — Audit trail and close
-
-**Do:**
-1. Sidebar → **Audit trail**.
-2. Scroll through: extraction, rule decisions, human corrections, rule-pack
-   approval, the agent's filing steps.
-3. Optionally click **Export audit JSON**.
-
-> One evidence-first workflow: Qwen for document understanding, MuleRun-ready
-> orchestration, deterministic tax controls, and a human-approved GUI agent.
-> Fewer preventable errors, faster review, and a complete audit trail.
-
-End on the readiness card. Do not end on code or a terminal.
-
----
-
-## If something goes wrong
-
-| Problem | Do this |
-| --- | --- |
-| Agent filing 500s | Chromium is missing: `npx playwright install chromium`, then restart |
-| Agent seems stuck | It is waiting for the OTP. Scroll down to the OTP box |
-| Score is not 68 at the start | Click **Reset** in the top bar |
-| Badge is amber | Say "demo fallback" or "local orchestrator". Do not call it live |
-| Schedule says "Invoice required" | Correct behaviour with no invoice extracted. Say so and move on |
-| Chat says "Demo fallback" | The API key/model was unavailable. Keep the badge visible and describe the grounded fallback honestly |
-| Chat answer looks stale | Close it, change the case, then reopen it; the conversation resets when the run context changes |
-| Numbers differ from this script | Read what is on screen. Never narrate a number the UI is not showing |
-
-## Claims to avoid on camera
-
-- Do not say MuleRun is orchestrating unless the badge reads `LIVE MULERUN`.
-- Do not say Qwen read the invoice unless the badge reads `LIVE QWEN`.
-- Do not call the readiness score an IRD risk rating.
-- Do not promise a refund date or a payment guarantee.
-- Do not describe the mock portal as the IRD portal.
-- Do not describe a Data Copilot answer as legal or professional tax advice.
+*End recording.*

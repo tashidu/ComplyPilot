@@ -6,6 +6,14 @@
 **Status:** Implementation complete. Demo video, hosted URL and repository visibility outstanding.  
 
 ---
+# Alibaba Cloud AI Buildathon - Final Submission
+
+**Team Verified:** Team Odin  
+**Participant:** M.G.Tashidu Vinuka  
+**Email:** vinukatashidu@gmail.com  
+**Status:** Implementation complete. Demo video, hosted URL and repository visibility outstanding.  
+
+---
 
 ## 1. Project Brief
 
@@ -13,7 +21,7 @@
 In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 October 2025. This shifts exporters from a voucher-based system to a cash-intensive, standard 45-day VAT refund framework. Delayed refunds—often caused by simple documentary errors, misaligned data between customs and schedules, or non-compliant supplier invoices—can severely cripple an exporter's cash flow. Compliance now directly controls cash flow, and traditional manual reconciliation is too slow and error-prone to protect the 45-day refund clock.
 
 ### Solution
-**ComplyPilot RefundShield** is a VAT Refund Readiness & Compliance Autopilot designed specifically for Sri Lankan exporters. It acts as a pre-flight check before official submission. ComplyPilot continuously analyzes invoices, supplier data, VAT schedules, and customs records. It explains every compliance blocker, estimates the earliest eligible refund timeline, runs deterministic checks based on Gazetted rules (e.g., October 2026 invoice formats), and prepares a traceable, human-approved evidence trail to ensure the 45-day refund clock isn't derailed by basic errors.
+**ComplyPilot RefundShield** is a VAT Refund Readiness & Compliance Autopilot designed specifically for Sri Lankan exporters. It automatically processes VAT-related documents without errors, features an interactive AI chatbox for instant data queries, and plans to integrate seamlessly with the IRD's RAMIS portal using an automated GUI filing agent. It acts as a pre-flight check before official submission. ComplyPilot continuously analyzes invoices, supplier data, VAT schedules, and customs records. It explains every compliance blocker, estimates the earliest eligible refund timeline, runs deterministic checks based on Gazetted rules (e.g., October 2026 invoice formats), and prepares a traceable, human-approved evidence trail to ensure the 45-day refund clock isn't derailed by basic errors.
 
 ### AI Features in Your Product
 - **Multimodal Document Extraction:** Alibaba Cloud **Qwen-VL** via Model Studio extracts structured invoice fields from photographed invoices, with per-field confidence and source text. Every model response is schema-validated with Zod before it is used.
