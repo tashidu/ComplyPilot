@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
+import { recallRun, rememberRun } from "@/lib/runs/run-store";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 
@@ -34,7 +35,11 @@ export async function POST(req: Request) {
     const resolvedBlockersStr = formData.get("resolvedBlockers") as string;
     const resolvedBlockers = resolvedBlockersStr ? JSON.parse(resolvedBlockersStr) : [];
 
-    const result = await runOrchestrator(image, futureRules, resolvedBlockers);
+    // Continue an existing run when no new file is supplied, so a live
+    // extraction is not replaced by fixtures on a rule-profile change.
+    const previous = image ? undefined : recallRun(formData.get("runId") as string | null);
+    const result = await runOrchestrator(image, futureRules, resolvedBlockers, previous);
+    rememberRun(result);
 
     // Audit events must describe what actually happened, never what was intended.
     if (!image && resolvedBlockers.length === 0) {

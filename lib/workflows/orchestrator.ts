@@ -2,63 +2,208 @@ import { extractInvoiceData } from "../ai/qwen-client";
 import { analyzeDocument } from "../agents/document-agent";
 import { analyzeReconciliation } from "../agents/reconciliation-agent";
 import { calculateReadiness, calculateClaimValue } from "../agents/readiness-agent";
-import { AnalyzeResult, Finding } from "../types";
+import { AnalyzeResult, Finding, TraceStage, WorkflowInfo } from "../types";
+import type { StoredRun } from "../runs/run-store";
+import {
+  compareMuleRunResult,
+  isMuleRunConfigured,
+  runMuleRunWorkflow,
+  type WorkflowInput,
+} from "./mulerun-adapter";
 
 export type UploadedImage = {
   base64: string;
   mimeType: string;
 };
 
+/** Synthetic totals the reconciliation agent works against. */
+const FIXTURE_TOTALS = {
+  scheduleLkr: 18_300_000,
+  cusdecLkr: 16_000_000,
+  supplierSnapshotDate: "2025-11-18",
+};
+
+/** Times a stage and records it on the trace, so the UI shows real durations. */
+async function timed<T>(
+  trace: TraceStage[],
+  name: string,
+  run: () => T | Promise<T>,
+): Promise<T> {
+  const started = performance.now();
+  try {
+    const value = await run();
+    trace.push({ name, status: "ok", ms: Math.round(performance.now() - started) });
+    return value;
+  } catch (error) {
+    trace.push({
+      name,
+      status: "failed",
+      ms: Math.round(performance.now() - started),
+      detail: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+}
+
 export async function runOrchestrator(
   image: UploadedImage | null,
   isFutureRules: boolean,
   resolvedBlockers: string[] = [],
+  /** A previous run to continue, so a live extraction survives later clicks. */
+  previous?: StoredRun,
 ): Promise<AnalyzeResult> {
+  const trace: TraceStage[] = [];
   let mode: AnalyzeResult["mode"] = "LIVE_QWEN";
   let fallbackReason: string | null = null;
   let extraction = null;
 
   if (image) {
+    const started = performance.now();
     try {
       extraction = await extractInvoiceData(image.base64, image.mimeType);
+      trace.push({
+        name: "Qwen extraction",
+        status: "ok",
+        ms: Math.round(performance.now() - started),
+      });
     } catch (error) {
       // The demo must stay usable when Model Studio is unavailable, but it must
       // never present fixture data as a live model response.
       mode = "DEMO_FALLBACK";
       fallbackReason = error instanceof Error ? error.message : "Extraction failed.";
+      trace.push({
+        name: "Qwen extraction",
+        status: "failed",
+        ms: Math.round(performance.now() - started),
+        detail: fallbackReason,
+      });
       console.warn("[orchestrator] Qwen extraction failed, using demo fixtures:", fallbackReason);
     }
+  } else if (previous) {
+    // Resolving a blocker or changing rule profile re-runs the deterministic
+    // checks against whatever this run already extracted.
+    extraction = previous.extraction;
+    mode = previous.mode;
+    fallbackReason = previous.fallbackReason;
+    trace.push({
+      name: "Qwen extraction",
+      status: "ok",
+      ms: 0,
+      detail: "Reused the extraction from this run.",
+    });
   } else {
     mode = "DEMO_FALLBACK";
     fallbackReason = "No document was uploaded, so the synthetic demo case is shown.";
+    trace.push({
+      name: "Qwen extraction",
+      status: "waiting",
+      ms: 0,
+      detail: "No document uploaded.",
+    });
   }
 
-  // 1. Document Agent
-  const docFinding = analyzeDocument(extraction, isFutureRules);
+  const runId =
+    previous?.runId ?? `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
-  // 2. Reconciliation Agent
-  const reconFindings = analyzeReconciliation();
+  // 1. Document Compliance Agent
+  const docFinding = await timed(trace, "Document Compliance Agent", () =>
+    analyzeDocument(extraction, isFutureRules),
+  );
 
-  // Combine findings
+  // 2. Supplier & Reconciliation Agent
+  const reconFindings = await timed(trace, "Reconciliation Agent", () => analyzeReconciliation());
+
   let allFindings: Finding[] = [];
   if (docFinding) allFindings.push(docFinding);
   allFindings.push(...reconFindings);
 
   // Apply resolved status based on human actions
-  allFindings = allFindings.map((finding) => {
-    if (resolvedBlockers.includes(finding.id)) {
-      return { ...finding, status: "resolved" as const };
-    }
-    return finding;
-  });
+  allFindings = allFindings.map((finding) =>
+    resolvedBlockers.includes(finding.id) ? { ...finding, status: "resolved" as const } : finding,
+  );
 
-  // 3. Readiness Agent
-  const score = calculateReadiness(allFindings, isFutureRules);
+  // 3. Hand the structured case to MuleRun when it is configured. A failure is
+  // never fatal - the local rules below still produce the same shaped result.
+  let workflowMode: WorkflowInfo["mode"] = "LOCAL";
+  let executionId: string | null = null;
+  let workflowFallbackReason: string | null = null;
+
+  if (process.env.WORKFLOW_MODE === "mulerun") {
+    const started = performance.now();
+    try {
+      if (!isMuleRunConfigured()) {
+        throw new Error("MULERUN_API_URL or MULERUN_API_KEY is not set.");
+      }
+      const input: WorkflowInput = {
+        runId,
+        ruleProfile: isFutureRules ? "v2026.10" : "historical",
+        invoice: (extraction as Record<string, unknown> | null) ?? null,
+        schedule: { totalLkr: FIXTURE_TOTALS.scheduleLkr },
+        cusdec: { totalLkr: FIXTURE_TOTALS.cusdecLkr },
+        supplier: { snapshotDate: FIXTURE_TOTALS.supplierSnapshotDate },
+        resolvedBlockers,
+      };
+      const result = await runMuleRunWorkflow(input);
+
+      // Advisory only. Remote statuses are compared, never applied: see
+      // compareMuleRunResult for why accepting them would be a scoring hole.
+      const disagreements = compareMuleRunResult(allFindings, result);
+      workflowMode = "LIVE_MULERUN";
+      executionId = result.executionId;
+      trace.push({
+        name: "MuleRun workflow",
+        status: "ok",
+        ms: Math.round(performance.now() - started),
+        detail:
+          disagreements.length === 0
+            ? `Execution ${result.executionId} agrees with the local rules pack.`
+            : `Execution ${result.executionId} disagrees on ${disagreements
+                .map((d) => `${d.findingId} (workflow ${d.remoteStatus}, local ${d.localStatus})`)
+                .join(", ")}. Local findings kept.`,
+      });
+    } catch (error) {
+      workflowFallbackReason = error instanceof Error ? error.message : String(error);
+      trace.push({
+        name: "MuleRun workflow",
+        status: "failed",
+        ms: Math.round(performance.now() - started),
+        detail: workflowFallbackReason,
+      });
+      console.warn("[orchestrator] MuleRun unavailable, using local orchestrator:", workflowFallbackReason);
+    }
+  } else {
+    workflowFallbackReason = "WORKFLOW_MODE is not set to mulerun.";
+  }
+
+  // 4. Refund Readiness Agent. The score is always computed here, never taken
+  // from a remote workflow, so the number stays reproducible by hand.
+  const score = await timed(trace, "Refund Readiness Agent", () =>
+    calculateReadiness(allFindings),
+  );
   const claimValueUnderReviewLkr = calculateClaimValue(allFindings);
 
+  const openCount = allFindings.filter((finding) => finding.status === "open").length;
+  const gate: WorkflowInfo["gate"] = openCount === 0 ? "READY_TO_FILE" : "NEEDS_HUMAN";
+  trace.push({
+    name: "Human approval gate",
+    status: gate === "READY_TO_FILE" ? "ok" : "waiting",
+    ms: 0,
+    detail:
+      gate === "READY_TO_FILE"
+        ? "All blockers resolved. Awaiting explicit human approval."
+        : `${openCount} blocker${openCount === 1 ? "" : "s"} must be resolved by a human.`,
+  });
+
   return {
-    runId: `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`,
+    runId,
     mode,
+    workflow: {
+      mode: workflowMode,
+      executionId,
+      fallbackReason: workflowMode === "LIVE_MULERUN" ? null : workflowFallbackReason,
+      trace,
+      gate,
+    },
     fallbackReason,
     invoice: extraction,
     findings: allFindings,

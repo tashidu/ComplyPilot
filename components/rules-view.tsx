@@ -2,6 +2,7 @@
 
 import type { AnalyzeResult } from "@/lib/types";
 import { PageHead, SectionHead } from "./ui";
+import { RegulatoryWatchPanel } from "./regulatory-watch-panel";
 
 export function RulesView({
   result,
@@ -9,12 +10,14 @@ export function RulesView({
   notice2,
   onSetProfile,
   onToggleNotice2,
+  onAgentEvent,
 }: {
   result: AnalyzeResult;
   futureRules: boolean;
   notice2: boolean;
   onSetProfile: (future: boolean) => void;
   onToggleNotice2: () => void;
+  onAgentEvent?: (actor: "agent" | "human", title: string, detail: string) => void;
 }) {
   const invoiceFixed = result.findings.find(f => f.id === "invoice")?.status === "resolved";
   const futureIssues = futureRules && !invoiceFixed;
@@ -105,6 +108,9 @@ export function RulesView({
           </div>
         </article>
       </div>
+
+      <SectionHead title="Regulatory watch" />
+      <RegulatoryWatchPanel onAgentEvent={onAgentEvent} />
 
       <SectionHead
         title="45-day clock twin"

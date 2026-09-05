@@ -29,6 +29,8 @@ export default function Page() {
   const [modalOpen, setModalOpen] = useState(false);
   const [toast, setToast] = useState({ message: "", show: false });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The active analysis run, so later calls keep its extraction. */
+  const runIdRef = useRef<string | null>(null);
 
   const openBlockers = useMemo(() => {
     if (!analyzeResult) return [];
@@ -40,6 +42,8 @@ export default function Page() {
       const formData = new FormData();
       formData.append("futureRules", String(isFuture));
       formData.append("resolvedBlockers", JSON.stringify(currentResolved));
+      // Continues the same run so a live extraction is not lost on the next click.
+      if (runIdRef.current && !file) formData.append("runId", runIdRef.current);
       if (file) {
         formData.append("file", file);
       }
@@ -49,13 +53,15 @@ export default function Page() {
         body: formData,
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "The analysis request failed.");
+      runIdRef.current = data.runId;
       setAnalyzeResult(data);
       if (data.auditEvents && data.auditEvents.length > 0) {
         setAudit(prev => [...prev, ...data.auditEvents]);
       }
     } catch (e) {
       console.error(e);
-      showToast("Failed to fetch analysis");
+      showToast(e instanceof Error ? e.message : "Failed to fetch analysis");
     }
   }, []);
 
@@ -89,9 +95,11 @@ export default function Page() {
       const res = await fetch("/api/resolve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ findingId: id, resolvedBlockers: resolved, futureRules }),
+        body: JSON.stringify({ findingId: id, resolvedBlockers: resolved, futureRules, runId: runIdRef.current }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "The finding could not be updated.");
+      runIdRef.current = data.runId;
       setAnalyzeResult(data);
       if (data.auditEvents && data.auditEvents.length > 0) {
         setAudit(prev => [...prev, ...data.auditEvents]);
@@ -104,7 +112,7 @@ export default function Page() {
       showToast(`Readiness updated to ${data.score.total}/100`);
     } catch (e) {
       console.error(e);
-      showToast("Failed to resolve blocker");
+      showToast(e instanceof Error ? e.message : "Failed to resolve blocker");
     }
   }, [futureRules, resolved, showToast]);
 
@@ -155,17 +163,17 @@ export default function Page() {
   const addFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      setFiles((current) => current + fileList.length);
+      setFiles((current) => current + 1);
       
-      const file = fileList[0]; // just use the first for the demo
+      const file = fileList[0];
       await fetchAnalysis(futureRules, resolved, file);
-      
+
       addAudit(
         "human",
-        `${fileList.length} evidence file${fileList.length > 1 ? "s" : ""} added`,
-        "Files were added and analyzed."
+        "Invoice image submitted for extraction",
+        `${file.name} was sent to the document agent.`
       );
-      showToast(`${fileList.length} file${fileList.length > 1 ? "s" : ""} added and analyzed`);
+      showToast("Invoice submitted for extraction");
     },
     [futureRules, resolved, fetchAnalysis, addAudit, showToast]
   );
@@ -188,6 +196,7 @@ export default function Page() {
         body: JSON.stringify({ approved: true }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "The mock submission was rejected.");
       setSubmitted(true);
       if (data.auditEvent) {
         setAudit(prev => [...prev, data.auditEvent]);
@@ -195,7 +204,7 @@ export default function Page() {
       setModalOpen(true);
     } catch (e) {
       console.error(e);
-      showToast("Failed to submit");
+      showToast(e instanceof Error ? e.message : "Failed to submit");
     }
   }, [approved, openBlockers.length, submitted, showToast]);
 
@@ -220,6 +229,9 @@ export default function Page() {
   }, [audit, showToast, analyzeResult, futureRules]);
 
   const resetDemo = useCallback(() => {
+    // Drop the run id first: otherwise the next analyze call continues the old
+    // run and reuses the invoice extraction the user just reset away.
+    runIdRef.current = null;
     setFutureRules(true);
     setResolved([]);
     setNotice2(false);
@@ -255,7 +267,17 @@ export default function Page() {
               }
             >
               <i className="dot" />
-              {analyzeResult.mode === "LIVE_QWEN" ? "LIVE QWEN" : "DEMO FALLBACK"}
+              AI: {analyzeResult.mode === "LIVE_QWEN" ? "LIVE QWEN" : "DEMO FALLBACK"}
+            </span>
+            <span
+              className={`pill ${analyzeResult.workflow.mode === "LIVE_MULERUN" ? "live" : "fallback"}`}
+              title={
+                analyzeResult.workflow.fallbackReason ??
+                `MuleRun execution ${analyzeResult.workflow.executionId ?? ""}`
+              }
+            >
+              <i className="dot" />
+              Workflow: {analyzeResult.workflow.mode === "LIVE_MULERUN" ? "LIVE MULERUN" : "LOCAL FALLBACK"}
             </span>
             <button className="button" onClick={resetDemo}>
               Reset
@@ -295,6 +317,7 @@ export default function Page() {
               notice2={notice2}
               onSetProfile={setProfile}
               onToggleNotice2={toggleNotice2}
+              onAgentEvent={addAudit}
             />
           ) : null}
 
@@ -305,6 +328,7 @@ export default function Page() {
               submitted={submitted}
               onApprovalChange={setApproved}
               onSubmit={submitMock}
+              onAgentEvent={(title, detail) => addAudit("agent", title, detail)}
             />
           ) : null}
 

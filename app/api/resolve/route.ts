@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator } from "@/lib/workflows/orchestrator";
+import { recallRun, rememberRun } from "@/lib/runs/run-store";
 
 export async function POST(req: Request) {
   try {
-    const { findingId, resolvedBlockers, futureRules } = await req.json();
+    const { findingId, resolvedBlockers, futureRules, runId } = await req.json();
 
     if (!findingId) {
       return NextResponse.json({ error: "findingId is required" }, { status: 400 });
@@ -20,8 +21,10 @@ export async function POST(req: Request) {
 
     const nextResolved = Array.from(currentResolved);
 
-    // Re-run the orchestrator to get the updated score without making another AI call
-    const result = await runOrchestrator(null, !!futureRules, nextResolved);
+    // Re-run the deterministic checks against whatever this run extracted,
+    // without making another AI call.
+    const result = await runOrchestrator(null, !!futureRules, nextResolved, recallRun(runId));
+    rememberRun(result);
 
     // Prepare audit event
     const action = currentResolved.has(findingId) ? "resolved" : "reopened";

@@ -6,11 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "^15.5.0",
     "openai": "^7.10.0",
+    "playwright": "^1.63.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zod": "^4.5.4"

@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { AnalyzeResult } from "@/lib/types";
 import { formatLkr, SCORE_CONFIG, type ScoreKey } from "@/lib/demo";
+import { RescuePlanner, WorkflowTrace } from "./workflow-trace";
 
 type Props = {
   result: AnalyzeResult;
@@ -77,14 +78,23 @@ export function OverviewView({
       </div>
 
       <div className="section-head">
+        <h2>Pre-flight workflow</h2>
+        <span className="subtle">Measured on this run</span>
+      </div>
+      <div className="grid two">
+        <WorkflowTrace result={result} />
+        <RescuePlanner result={result} onOpenEvidence={onOpenEvidence} />
+      </div>
+
+      <div className="section-head">
         <h2>Agent workspace</h2>
-        <span className="subtle">MuleRun orchestrator active</span>
+        <span className="subtle">Three specialist agents</span>
       </div>
       <div className="grid three">
         <AgentCard
           initial="D"
           name="Document Compliance"
-          meta="10 invoices · 94 fields"
+          meta="Schema-validated invoice fields"
           copy="Extracts invoice fields, validates calculations and applies the selected rule pack."
           accent="var(--brand)"
           accentSoft="var(--brand-soft)"
@@ -277,7 +287,7 @@ function UploadCard({
       <div className="card-head">
         <div>
           <h2>Add evidence</h2>
-          <p>Photos, PDFs, CSV and spreadsheets</p>
+          <p>One invoice image per analysis run</p>
         </div>
         <span className="pill">{files} files</span>
       </div>
@@ -299,13 +309,15 @@ function UploadCard({
           <div className="dropzone-icon" aria-hidden="true">
             ↑
           </div>
-          <strong>Drop evidence here</strong>
-          <span>Invoice images, VAT schedule, supplier snapshot or CUSDEC.</span>
-          <span className="button small">Choose files</span>
+          <strong>Drop an invoice photo here</strong>
+          <span>JPEG, PNG, WebP or BMP, up to 10 MB. PDF and spreadsheet ingest are on the roadmap.</span>
+          <span className="button small">Choose file</span>
           <input
             ref={inputRef}
             type="file"
-            multiple
+            // The extraction path sends one image to the vision model, so the
+            // picker offers exactly what the backend can actually process.
+            accept="image/jpeg,image/png,image/webp,image/bmp"
             hidden
             onChange={(event) => {
               onAddFiles(event.target.files);

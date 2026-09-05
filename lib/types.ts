@@ -45,9 +45,29 @@ export type Score = {
   components: ScoreBreakdown;
 };
 
+/** One stage of the pre-flight workflow, with the time it actually took. */
+export type TraceStage = {
+  name: string;
+  status: "ok" | "waiting" | "failed";
+  ms: number;
+  detail?: string;
+};
+
+export type WorkflowInfo = {
+  /** LIVE_MULERUN only when a MuleRun execution genuinely returned a result. */
+  mode: "LIVE_MULERUN" | "LOCAL";
+  /** MuleRun execution id, so the run can be found in their dashboard. */
+  executionId: string | null;
+  /** Why the local orchestrator ran instead of MuleRun. Null when MuleRun ran. */
+  fallbackReason: string | null;
+  trace: TraceStage[];
+  gate: "NEEDS_HUMAN" | "READY_TO_FILE";
+};
+
 export type AnalyzeResult = {
   runId: string;
   mode: "LIVE_QWEN" | "DEMO_FALLBACK";
+  workflow: WorkflowInfo;
   /** Why the run fell back to fixtures. Null on a live run. Shown in the UI. */
   fallbackReason: string | null;
   invoice: any | null; // From Qwen

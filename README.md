@@ -51,6 +51,57 @@ Supported uploads are JPEG, PNG, WebP and BMP images, up to 10 MB. PDFs must be
 rendered to an image first; a PDF upload is rejected with an explanation rather
 than being silently mislabelled.
 
+## Workflow: MuleRun or local
+
+`WORKFLOW_MODE` decides how the pre-flight runs.
+
+| Mode | Behaviour | Header badge |
+| --- | --- | --- |
+| `local` (default) | Only the in-process orchestrator runs. | `Workflow: LOCAL FALLBACK` |
+| `mulerun` | The extracted case is posted to the MuleRun webhook. If it fails or times out, the local orchestrator still produces the result. | `Workflow: LIVE MULERUN` or `LOCAL FALLBACK` |
+
+The invoice image is never sent to MuleRun. Qwen extraction happens in this
+application and only the structured result crosses the boundary.
+
+**MuleRun findings are advisory.** Its statuses are compared against the local
+findings and any disagreement is shown in the trace, but they are never applied.
+A blocker counts as resolved only because a human resolved it, and the score is
+always computed by `lib/rules/scoring.ts`. Accepting a remote status would let
+anything able to answer the webhook award points, which would make the score
+meaningless.
+
+Status: the adapter is implemented and verified end to end against a stub
+webhook, including the failure path. It has not yet run against a published
+MuleRun workflow.
+
+## GUI filing agent
+
+The readiness score is a gate, not the end of the journey. Once every blocker is
+resolved and an authorised human ticks the approval box, a GUI agent completes
+the filing by **operating a portal on screen** rather than calling an API.
+
+- The agent takes a screenshot, reads the interactive controls on the page, asks
+  Qwen for the single next action, performs it, and looks again.
+- Every step is recorded with the screenshot the agent saw, the action it chose,
+  its stated reason, and whether the model or the deterministic fallback decided
+  it.
+- **It stops at identity verification.** A one-time password is always typed by
+  the human. That rule is enforced in code, not left to the model: an action
+  targeting an OTP, CAPTCHA or 2FA field is rewritten to a human hand-off even
+  if the model asks for it.
+
+It drives [`/mock-portal`](app/mock-portal/page.tsx), a mock tax portal bundled
+with this repository. It never contacts the Inland Revenue Department and cannot
+file a real return. The demo portal accepts the OTP `482913`.
+
+Playwright needs a browser binary once:
+
+```bash
+npx playwright install chromium
+```
+
+Set `GUI_AGENT_HEADLESS=false` to watch the browser work while recording.
+
 ## Deploy to Alibaba Cloud ECS
 
 The build produces a standalone server bundle (`output: "standalone"`), so the
@@ -77,6 +128,9 @@ git clone https://github.com/tashidu/ComplyPilot.git
 cd ComplyPilot
 npm ci
 npm run build
+
+# Chromium plus its system libraries, for the GUI filing agent
+sudo npx playwright install --with-deps chromium
 
 # the standalone server needs the static assets copied alongside it
 cp -r .next/static .next/standalone/.next/static
@@ -128,7 +182,11 @@ At the same time, a revised VAT tax-invoice format becomes effective on 1 Octobe
 
 ```mermaid
 flowchart LR
-    A[Invoices, VAT schedules, supplier snapshot and CUSDEC] --> O[MuleRun Orchestrator]
+    A[Invoices, VAT schedules, supplier snapshot and CUSDEC] --> Q[Qwen-VL extraction]
+    Q --> O{WORKFLOW_MODE}
+    O -->|mulerun| M[MuleRun pre-flight workflow]
+    O -->|local, or MuleRun unavailable| L[Local orchestrator]
+    M -.advisory verification.-> L
     O --> D[Document Compliance Agent]
     O --> R[Supplier & Reconciliation Agent]
     O --> F[Refund Readiness Agent]
@@ -188,7 +246,7 @@ A schedule can therefore be structurally valid while the wider evidence package 
 | Layer | Planned component | Role |
 | --- | --- | --- |
 | Multimodal extraction | Qwen vision-language model through Model Studio | OCR, layout understanding, handwriting and field confidence |
-| Workflow orchestration | MuleRun + Qwen reasoning model | Agent routing, evidence combination and human checkpoints |
+| Workflow orchestration | MuleRun webhook, with a local orchestrator fallback | Agent routing, evidence combination and human checkpoints |
 | Rules and retrieval | AnalyticDB | Versioned regulatory clauses, rules and source-dated snapshots |
 | Event processing | Function Compute | Parallel extraction and reconciliation jobs |
 | Application and storage | ECS + OSS | Dashboard, API, encrypted documents and audit artifacts |
@@ -197,7 +255,7 @@ A schedule can therefore be structurally valid while the wider evidence package 
 
 - **Qoder** - agentic development environment used to turn the specification into implementation tasks, code, tests and documentation.
 - **QoderWork** - desktop agent used to organise research, demo assets and structured team outputs.
-- **MuleRun** - planned workflow runtime for agent calls, document tools, approvals and status events.
+- **MuleRun** - workflow runtime for agent calls, approvals and status events. The adapter in `lib/workflows/mulerun-adapter.ts` is implemented and verified against a stub webhook; point `MULERUN_API_URL` at a published workflow to run it live.
 
 The team remains responsible for architecture decisions, regulatory interpretation, dataset design, security controls, test acceptance and final submission decisions.
 
@@ -233,7 +291,7 @@ Deliberately excluded:
 ## Roadmap
 
 1. Connect the UI to a Qwen-powered document-extraction service.
-2. Implement MuleRun orchestration and durable workflow state.
+2. Publish the MuleRun pre-flight workflow and move workflow state into durable storage.
 3. Build a professionally reviewed, versioned Sri Lankan VAT rules pack.
 4. Add structured VAT-schedule, ledger and CUSDEC parsers.
 5. Evaluate field-level extraction accuracy on a held-out synthetic dataset.

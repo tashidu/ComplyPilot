@@ -1,6 +1,7 @@
 "use client";
 
 import type { AnalyzeResult } from "@/lib/types";
+import { GuiAgentPanel } from "./gui-agent-panel";
 import { PageHead } from "./ui";
 
 export function FilingView({
@@ -9,12 +10,14 @@ export function FilingView({
   submitted,
   onApprovalChange,
   onSubmit,
+  onAgentEvent,
 }: {
   result: AnalyzeResult;
   approved: boolean;
   submitted: boolean;
   onApprovalChange: (value: boolean) => void;
   onSubmit: () => void;
+  onAgentEvent?: (title: string, detail: string) => void;
 }) {
   const openBlockers = result.findings.filter(f => f.status === "open");
   const ready = openBlockers.length === 0;
@@ -135,6 +138,8 @@ export function FilingView({
           </div>
         </article>
       </div>
+
+      <GuiAgentPanel canFile={ready && approved} onAgentEvent={onAgentEvent} />
     </>
   );
 }
