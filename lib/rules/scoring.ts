@@ -22,12 +22,13 @@ export const SCORE_CONFIG: Record<ScoreKey, { label: string; base: number; max: 
   package: { label: "Submission package", base: 8, max: 10 },
 };
 
-/** Points awarded when a blocker is cleared. Sum of all awards is 21 (68 -> 89). */
+/** The fixture awards total 21 (68 -> 89); a matched uploaded schedule can add 3 more. */
 const AWARDS = {
   /** The invoice passes the active rule pack, or that pack does not apply. */
   invoiceSatisfied: { document: 4 },
   customsResolved: { schedule: 2, customs: 5 },
   supplierResolved: { supplier: 10 },
+  scheduleResolved: { schedule: 3 },
 } as const;
 
 export function calculateReadiness(findings: Finding[]): Score {
@@ -49,6 +50,8 @@ export function calculateReadiness(findings: Finding[]): Score {
   }
 
   if (isResolved("supplier")) components.supplier += AWARDS.supplierResolved.supplier;
+
+  if (isResolved("schedule")) components.schedule += AWARDS.scheduleResolved.schedule;
 
   const total = (Object.values(components) as number[]).reduce((sum, value) => sum + value, 0);
   return { total, components };

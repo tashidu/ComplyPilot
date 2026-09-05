@@ -13,6 +13,7 @@ type Props = {
   onToggleResolve: (id: string) => void;
   onFixAll: () => void;
   onOpenEvidence: (id: string) => void;
+  onExportPassport: () => void;
 };
 
 export function OverviewView({
@@ -23,6 +24,7 @@ export function OverviewView({
   onToggleResolve,
   onFixAll,
   onOpenEvidence,
+  onExportPassport,
 }: Props) {
   const openBlockers = result.findings.filter(f => f.status === "open");
   const score = result.score.total;
@@ -39,9 +41,14 @@ export function OverviewView({
             Find correctable evidence blockers before filing, then keep every decision traceable.
           </p>
         </div>
-        <button className="button primary" onClick={onFixAll} disabled={ready}>
-          Run what-if: fix all
-        </button>
+        <div className="page-actions">
+          <button className="button" onClick={onExportPassport}>
+            Export Refund Passport
+          </button>
+          <button className="button primary" onClick={onFixAll} disabled={ready}>
+            Run what-if: fix all
+          </button>
+        </div>
       </div>
 
       <div className="notice">
@@ -54,8 +61,14 @@ export function OverviewView({
 
       <div className="grid hero" style={{ marginTop: 16 }}>
         <ScoreCard result={result} score={score} ready={ready} open={openBlockers.length} futureRules={futureRules} />
-        <UploadCard files={files} onAddFiles={onAddFiles} />
+        <UploadCard result={result} files={files} onAddFiles={onAddFiles} />
       </div>
+
+      <div className="section-head">
+        <h2>Live VAT Schedule reconciliation</h2>
+        <span className="tag brand">RECON-CSV-001</span>
+      </div>
+      <ScheduleReconciliationCard result={result} />
 
       <div className="section-head">
         <h2>Current evidence position</h2>
@@ -273,9 +286,11 @@ function ScoreCard({
 }
 
 function UploadCard({
+  result,
   files,
   onAddFiles,
 }: {
+  result: AnalyzeResult;
   files: number;
   onAddFiles: (files: FileList | null) => void;
 }) {
@@ -287,7 +302,7 @@ function UploadCard({
       <div className="card-head">
         <div>
           <h2>Add evidence</h2>
-          <p>One invoice image per analysis run</p>
+          <p>One invoice image plus one VAT Schedule CSV per analysis run</p>
         </div>
         <span className="pill">{files} files</span>
       </div>
@@ -309,15 +324,14 @@ function UploadCard({
           <div className="dropzone-icon" aria-hidden="true">
             ↑
           </div>
-          <strong>Drop an invoice photo here</strong>
-          <span>JPEG, PNG, WebP or BMP, up to 10 MB. PDF and spreadsheet ingest are on the roadmap.</span>
-          <span className="button small">Choose file</span>
+          <strong>Drop an invoice photo and/or a VAT Schedule CSV</strong>
+          <span>JPEG, PNG, WebP or BMP up to 10 MB; CSV up to 2 MB.</span>
+          <span className="button small">Choose files</span>
           <input
             ref={inputRef}
             type="file"
-            // The extraction path sends one image to the vision model, so the
-            // picker offers exactly what the backend can actually process.
-            accept="image/jpeg,image/png,image/webp,image/bmp"
+            accept="image/jpeg,image/png,image/webp,image/bmp,.csv,text/csv"
+            multiple
             hidden
             onChange={(event) => {
               onAddFiles(event.target.files);
@@ -326,6 +340,91 @@ function UploadCard({
           />
         </div>
       </div>
+      <div className="upload-foot">
+        <span>
+          Schedule: {result.scheduleEvidence ? `${result.scheduleEvidence.fileName} · ${result.scheduleEvidence.rows.length} rows` : "not uploaded"}
+        </span>
+        <a href="/demo/vat-schedule-demo.csv" download>
+          Download demo CSV
+        </a>
+      </div>
+    </article>
+  );
+}
+
+function formatScheduleAmount(value: number | null) {
+  if (value === null) return "Not supplied";
+  return new Intl.NumberFormat("en-LK", {
+    style: "currency",
+    currency: "LKR",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function ScheduleReconciliationCard({ result }: { result: AnalyzeResult }) {
+  const reconciliation = result.scheduleReconciliation;
+  const status = {
+    NOT_UPLOADED: { label: "Awaiting CSV", tag: "" },
+    NEEDS_INVOICE: { label: "Invoice required", tag: "warn" },
+    MATCHED: { label: "Matched", tag: "ok" },
+    MISMATCH: { label: "Review differences", tag: "alert" },
+  }[reconciliation.status];
+
+  return (
+    <article className="card pad schedule-card">
+      <div className="card-head">
+        <div>
+          <h2>{reconciliation.fileName ?? "Upload a VAT Schedule CSV to run the real matcher"}</h2>
+          <p>
+            {reconciliation.status === "NOT_UPLOADED"
+              ? "The matcher compares invoice number, supplier TIN, net amount, VAT and gross amount."
+              : `${reconciliation.rowCount} rows parsed from the user upload; no language model changes the values.`}
+          </p>
+        </div>
+        <span className={`tag ${status.tag}`}>{status.label}</span>
+      </div>
+
+      {reconciliation.totals ? (
+        <div className="schedule-totals">
+          <div><span>Net total</span><strong>{formatScheduleAmount(reconciliation.totals.netAmount)}</strong></div>
+          <div><span>VAT total</span><strong>{formatScheduleAmount(reconciliation.totals.vatAmount)}</strong></div>
+          <div><span>Gross total</span><strong>{formatScheduleAmount(reconciliation.totals.grossAmount)}</strong></div>
+        </div>
+      ) : null}
+
+      {reconciliation.matchedFields.length > 0 ? (
+        <div className="schedule-matches">
+          <strong>Matched:</strong>
+          {reconciliation.matchedFields.map((field) => (
+            <span className="chip ready" key={field}>✓ {field}</span>
+          ))}
+        </div>
+      ) : null}
+
+      {reconciliation.variances.length > 0 ? (
+        <div className="table-wrap schedule-variances">
+          <table>
+            <thead><tr><th>Check</th><th>Invoice</th><th>Schedule</th><th>Difference</th></tr></thead>
+            <tbody>
+              {reconciliation.variances.map((variance) => (
+                <tr key={variance.field}>
+                  <td><strong>{variance.label}</strong></td>
+                  <td>{variance.invoiceValue ?? "Missing"}</td>
+                  <td>{variance.scheduleValue ?? "Missing"}</td>
+                  <td>{variance.difference === null ? "—" : formatScheduleAmount(variance.difference)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {reconciliation.warnings.length > 0 ? (
+        <div className="notice schedule-warning">
+          <span aria-hidden="true">!</span>
+          <div>{reconciliation.warnings.join(" ")}</div>
+        </div>
+      ) : null}
     </article>
   );
 }

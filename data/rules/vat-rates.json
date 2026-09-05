@@ -1,0 +1,22 @@
+{
+  "jurisdiction": "Sri Lanka",
+  "lastVerifiedAt": "2026-09-05",
+  "sourceId": "IRD-VAT-RATES",
+  "rates": [
+    {
+      "id": "standard",
+      "label": "Standard rate",
+      "ratePercent": 18,
+      "effectiveFrom": "2024-01-01",
+      "scope": "Taxable supplies not otherwise zero-rated or exempt"
+    },
+    {
+      "id": "zero-export",
+      "label": "Zero rate — exports",
+      "ratePercent": 0,
+      "effectiveFrom": null,
+      "scope": "Qualifying exports, subject to the VAT Act and current IRD rules"
+    }
+  ],
+  "guardrail": "A rate suggestion is advisory until the supply classification and current law are confirmed by an authorised reviewer."
+}

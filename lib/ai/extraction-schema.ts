@@ -7,15 +7,25 @@ export const FieldSchema = z.object({
 });
 
 export const InvoiceExtractionSchema = z.object({
+  invoiceTitle: FieldSchema,
   sellerName: FieldSchema,
   sellerVatNumber: FieldSchema,
+  sellerAddress: FieldSchema,
+  sellerTelephone: FieldSchema,
   buyerName: FieldSchema,
+  buyerTin: FieldSchema,
+  buyerAddress: FieldSchema,
+  buyerTelephone: FieldSchema,
   invoiceNumber: FieldSchema,
   invoiceDate: FieldSchema,
+  supplyDate: FieldSchema,
+  placeOfSupply: FieldSchema,
   currency: FieldSchema,
   netTotal: FieldSchema,
   vatTotal: FieldSchema,
   grossTotal: FieldSchema,
+  totalInWords: FieldSchema,
+  paymentMode: FieldSchema,
   lineItems: z.array(
     z.object({
       description: FieldSchema,
@@ -24,7 +34,7 @@ export const InvoiceExtractionSchema = z.object({
       amount: FieldSchema,
       vatRate: FieldSchema,
     })
-  ).optional(),
+  ),
 });
 
 export type InvoiceExtraction = z.infer<typeof InvoiceExtractionSchema>;

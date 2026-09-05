@@ -1,0 +1,15 @@
+{
+  "id": "SL-RBRS-MVP",
+  "name": "Risk-Based Refund Readiness Controls",
+  "effectiveFrom": "2025-10-01",
+  "sourceIds": ["GZ-2456-02", "IRD-RBRS-CIRCULAR", "IRD-VAT-QUICK-GUIDE-2025"],
+  "controls": [
+    { "id": "RBRS-001", "title": "RAMIS profile and refund destination are current", "evidence": ["taxpayer profile", "bank-account confirmation", "authorised contact details"], "decision": "human-review" },
+    { "id": "RBRS-002", "title": "Return and schedules present and structurally verified", "evidence": ["VAT return", "applicable VAT schedules", "Schedule File Verifier result"], "decision": "block-if-missing" },
+    { "id": "RBRS-003", "title": "Invoice evidence linked", "evidence": ["tax invoices", "ledger references"], "decision": "human-review" },
+    { "id": "RBRS-004", "title": "Export evidence reconciled", "evidence": ["Schedule 06 or 07", "CUSDEC or service-export evidence"], "decision": "human-review" },
+    { "id": "RBRS-005", "title": "Supplier evidence is source-dated", "evidence": ["supplier TIN", "inactive-registration snapshot date"], "decision": "human-review" },
+    { "id": "RBRS-006", "title": "Submission authorised", "evidence": ["named reviewer", "approval timestamp", "audit trail"], "decision": "block-until-approved" }
+  ],
+  "guardrail": "These are transparent MVP readiness controls, not a reproduction or prediction of the IRD's official risk category."
+}

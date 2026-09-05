@@ -1,0 +1,43 @@
+{
+  "id": "SL-VAT-INVOICE-v2026.10",
+  "name": "Sri Lanka VAT Tax Invoice Rule Pack",
+  "jurisdiction": "Sri Lanka",
+  "version": "v2026.10",
+  "effectiveFrom": "2026-10-01",
+  "sourceIds": ["GZ-2481-22", "GZ-2500-106"],
+  "patterns": {
+    "tin": "^\\d{9}$",
+    "invoiceSerial": "^\\d{2}(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)_[A-Za-z0-9]{1,15}_\\d+$",
+    "date": "^(0[1-9]|1[0-2])/(0[1-9]|[12]\\d|3[01])/\\d{4}$",
+    "invoiceSerialMaxLength": 40
+  },
+  "fields": [
+    { "key": "invoiceTitle", "label": "TAX INVOICE title", "extractionPath": "invoiceTitle.value", "required": true, "validation": "tax-invoice-title" },
+    { "key": "sellerTin", "label": "Supplier TIN", "extractionPath": "sellerVatNumber.value", "required": true, "validation": "tin" },
+    { "key": "sellerName", "label": "Supplier name", "extractionPath": "sellerName.value", "required": true, "validation": "present" },
+    { "key": "sellerAddress", "label": "Supplier address", "extractionPath": "sellerAddress.value", "required": true, "validation": "present" },
+    { "key": "sellerTelephone", "label": "Supplier telephone", "extractionPath": "sellerTelephone.value", "required": false, "validation": "present" },
+    { "key": "buyerTin", "label": "Purchaser TIN", "extractionPath": "buyerTin.value", "required": true, "validation": "tin" },
+    { "key": "buyerName", "label": "Purchaser name", "extractionPath": "buyerName.value", "required": true, "validation": "present" },
+    { "key": "buyerAddress", "label": "Purchaser address", "extractionPath": "buyerAddress.value", "required": true, "validation": "present" },
+    { "key": "buyerTelephone", "label": "Purchaser telephone", "extractionPath": "buyerTelephone.value", "required": false, "validation": "present" },
+    { "key": "invoiceNumber", "label": "Invoice serial number", "extractionPath": "invoiceNumber.value", "required": true, "validation": "invoice-serial" },
+    { "key": "invoiceDate", "label": "Invoice date", "extractionPath": "invoiceDate.value", "required": true, "validation": "date" },
+    { "key": "placeOfSupply", "label": "Place of supply", "extractionPath": "placeOfSupply.value", "required": false, "validation": "present" },
+    { "key": "supplyDate", "label": "Date of supply", "extractionPath": "supplyDate.value", "required": true, "validation": "date" },
+    { "key": "description", "label": "Description of supply", "extractionPath": "lineItems[].description.value", "required": true, "validation": "present" },
+    { "key": "quantity", "label": "Quantity or volume", "extractionPath": "lineItems[].quantity.value", "required": true, "validation": "present" },
+    { "key": "currency", "label": "Values stated in LKR", "extractionPath": "currency.value", "required": true, "validation": "lkr" },
+    { "key": "netTotal", "label": "Net value excluding VAT", "extractionPath": "netTotal.value", "required": true, "validation": "present" },
+    { "key": "vatTotal", "label": "VAT amount", "extractionPath": "vatTotal.value", "required": true, "validation": "present" },
+    { "key": "grossTotal", "label": "Total including VAT", "extractionPath": "grossTotal.value", "required": true, "validation": "present" },
+    { "key": "totalInWords", "label": "Total amount in words", "extractionPath": "totalInWords.value", "required": false, "validation": "present" },
+    { "key": "paymentMode", "label": "Mode of payment", "extractionPath": "paymentMode.value", "required": false, "validation": "present" }
+  ],
+  "manualControls": [
+    "The invoice contains only goods or services subject to VAT.",
+    "Supplier and purchaser details agree with their VAT registration certificates.",
+    "The invoice serial is unique and follows the entity's approved sequence.",
+    "Any regulatory interpretation or low-confidence extraction is approved by a human reviewer."
+  ]
+}

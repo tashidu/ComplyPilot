@@ -13,6 +13,7 @@ import {
   INITIAL_AUDIT,
 } from "@/lib/demo";
 import type { AnalyzeResult } from "@/lib/types";
+import { governmentSources } from "@/lib/government-data";
 
 export default function Page() {
   const [view, setView] = useState<ViewId>("overview");
@@ -42,8 +43,9 @@ export default function Page() {
       const formData = new FormData();
       formData.append("futureRules", String(isFuture));
       formData.append("resolvedBlockers", JSON.stringify(currentResolved));
-      // Continues the same run so a live extraction is not lost on the next click.
-      if (runIdRef.current && !file) formData.append("runId", runIdRef.current);
+      // Every evidence upload stays in the same run so an invoice image and a
+      // later Schedule CSV can be reconciled with each other.
+      if (runIdRef.current) formData.append("runId", runIdRef.current);
       if (file) {
         formData.append("file", file);
       }
@@ -59,9 +61,11 @@ export default function Page() {
       if (data.auditEvents && data.auditEvents.length > 0) {
         setAudit(prev => [...prev, ...data.auditEvents]);
       }
+      return data as AnalyzeResult;
     } catch (e) {
       console.error(e);
       showToast(e instanceof Error ? e.message : "Failed to fetch analysis");
+      return null;
     }
   }, []);
 
@@ -163,17 +167,24 @@ export default function Page() {
   const addFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList || fileList.length === 0) return;
-      setFiles((current) => current + 1);
-      
-      const file = fileList[0];
-      await fetchAnalysis(futureRules, resolved, file);
+      const selected = Array.from(fileList);
+      let processed = 0;
 
-      addAudit(
-        "human",
-        "Invoice image submitted for extraction",
-        `${file.name} was sent to the document agent.`
-      );
-      showToast("Invoice submitted for extraction");
+      for (const file of selected) {
+        const result = await fetchAnalysis(futureRules, resolved, file);
+        if (!result) continue;
+        processed += 1;
+        const schedule = file.name.toLowerCase().endsWith(".csv");
+        addAudit(
+          "human",
+          schedule ? "VAT Schedule submitted for reconciliation" : "Invoice image submitted for extraction",
+          `${file.name} was sent to the ${schedule ? "schedule parser" : "document agent"}.`,
+        );
+      }
+      if (processed > 0) {
+        setFiles((current) => current + processed);
+        showToast(`${processed} evidence file${processed === 1 ? "" : "s"} processed`);
+      }
     },
     [futureRules, resolved, fetchAnalysis, addAudit, showToast]
   );
@@ -227,6 +238,79 @@ export default function Page() {
     URL.revokeObjectURL(url);
     showToast("Synthetic audit log exported");
   }, [audit, showToast, analyzeResult, futureRules]);
+
+  const exportPassport = useCallback(async () => {
+    if (!analyzeResult) return;
+    const exportedAt = new Date();
+    const passportEvent: AuditEvent = {
+      time: exportedAt.toLocaleTimeString("en-GB", { hour12: false }),
+      actor: "human",
+      title: "Refund Evidence Passport exported",
+      detail: `A source-dated evidence manifest was exported for ${analyzeResult.runId}.`,
+    };
+    const passport = {
+      schema: "complypilot.refund-evidence-passport.v1",
+      passportId: `CP-${analyzeResult.runId}`,
+      generatedAt: exportedAt.toISOString(),
+      organisation: "Serendib Export Works (synthetic demo)",
+      jurisdiction: "Sri Lanka",
+      ruleProfile: futureRules ? "v2026.10" : "historical",
+      readiness: {
+        score: analyzeResult.score,
+        gate: analyzeResult.workflow.gate,
+        claimValueUnderReviewLkr: analyzeResult.claimValueUnderReviewLkr,
+      },
+      evidenceModes: {
+        invoice: analyzeResult.mode,
+        schedule: analyzeResult.scheduleEvidence ? "USER_UPLOADED_CSV" : "NOT_UPLOADED",
+        supplierAndCustoms: "SYNTHETIC_DEMO_FIXTURES",
+      },
+      invoiceExtraction: analyzeResult.invoice,
+      vatSchedule: analyzeResult.scheduleEvidence,
+      scheduleReconciliation: analyzeResult.scheduleReconciliation,
+      findings: analyzeResult.findings,
+      officialSources: governmentSources.map(
+        ({ id, title, url, effectiveFrom, lastVerifiedAt, legalWeight }) => ({
+          id,
+          title,
+          url,
+          effectiveFrom,
+          lastVerifiedAt,
+          legalWeight,
+        }),
+      ),
+      workflow: analyzeResult.workflow,
+      auditTrail: [...audit, passportEvent],
+      boundaries: {
+        decisionSupportOnly: true,
+        officialIrdRiskRating: false,
+        liveGovernmentSubmission: false,
+        humanApprovalRequired: true,
+      },
+    };
+    const canonical = JSON.stringify(passport);
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+    const digestHex = Array.from(new Uint8Array(digest), (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+    const output = {
+      ...passport,
+      integrity: {
+        algorithm: "SHA-256",
+        digestHex,
+        note: "Tamper-evident content digest; not a government or digital signature.",
+      },
+    };
+    const blob = new Blob([JSON.stringify(output, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `complypilot-refund-passport-${analyzeResult.runId}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setAudit((events) => [...events, passportEvent]);
+    showToast("Refund Evidence Passport exported");
+  }, [analyzeResult, audit, futureRules, showToast]);
 
   const resetDemo = useCallback(() => {
     // Drop the run id first: otherwise the next analyze call continues the old
@@ -303,6 +387,7 @@ export default function Page() {
               onToggleResolve={toggleResolve}
               onFixAll={fixAll}
               onOpenEvidence={openEvidence}
+              onExportPassport={exportPassport}
             />
           ) : null}
 

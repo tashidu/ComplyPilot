@@ -167,10 +167,46 @@ reads `LIVE QWEN` after uploading an invoice image.
 - **Three-agent workflow** - Document Compliance, Supplier & Reconciliation, and Refund Readiness.
 - **Regulatory Time Machine** - compares the evidence before and after the revised invoice format becomes effective on 1 October 2026.
 - **Evidence Graph** - traces a finding from its source document through the applied rule to the required human action.
+- **Live VAT Schedule CSV reconciliation** - parses a user upload and compares invoice number, supplier TIN, net value, VAT and gross value without letting an LLM alter the figures.
+- **Refund Evidence Passport** - exports the evidence, findings, rule sources, workflow trace and audit history with a SHA-256 content digest.
 - **What-if simulator** - resolves blockers and updates the score, evidence value and readiness status immediately.
 - **45-day Clock Twin** - compares a normal statutory scenario with a simulated Notice 2 correction scenario.
 - **Human-approved mock filing** - keeps the authorised user in control and never accesses the live IRD portal.
 - **Replayable audit trail** - records agent findings, human fixes, rule-profile changes and mock filing actions.
+
+## Official government data pack
+
+The MVP now bundles a source-dated, machine-readable public reference layer under
+[`data/`](data). It connects the rules screen and Document Compliance Agent to:
+
+- Gazette 2481/22 invoice fields and serial/date formats, with the effective date
+  amended to **1 October 2026** by Gazette 2500/106.
+- IRD VAT-rate references, VAT schedule types and the Schedule File Verifier.
+- Risk-Based Refund Scheme readiness controls and filing guidance.
+- An inactive-VAT-list **snapshot descriptor** that always exposes its effective
+  date instead of claiming real-time supplier status.
+- Sri Lanka Customs tariff and HS-classification links as advisory references.
+
+`GET /api/government-data` returns the complete source registry, rule packs,
+schedule map, snapshot metadata and MVP safety boundaries. The public repository
+contains no taxpayer records, and legal, supplier and Customs decisions remain
+human-reviewed. MuleRun receives a compact `governmentContext` with the selected
+rule-pack version, source IDs, rates, Schedule 01–07 map and snapshot date; it
+does not receive taxpayer-list records or raw invoice images.
+
+### VAT Schedule CSV input
+
+The evidence dropzone accepts a VAT Schedule CSV up to 2 MB and 2,000 rows. The
+parser recognises common headings such as `Invoice Number`, `Supplier TIN`,
+`Net Amount`, `VAT Amount` and `Gross Amount`, including several accounting-tool
+aliases. It then locates the extracted invoice and displays every matched field
+or variance. Download [`public/demo/vat-schedule-demo.csv`](public/demo/vat-schedule-demo.csv)
+for the expected minimal format.
+
+The parsed schedule is held only in the demo's in-memory run store. Exporting a
+Refund Evidence Passport creates a local JSON evidence manifest with a SHA-256
+content digest. The digest is tamper-evident metadata, not a digital signature
+or an IRD acknowledgement.
 
 ## The problem
 
@@ -273,9 +309,11 @@ The team remains responsible for architecture decisions, regulatory interpretati
 
 Included in the prototype:
 
-- Synthetic data only
+- Synthetic supplier/Customs demo data, plus ephemeral user-uploaded invoice images and VAT Schedule CSV data
 - Explainable readiness model
 - Versioned rule-profile demonstration
+- Deterministic invoice-to-schedule reconciliation
+- Downloadable Refund Evidence Passport
 - Evidence graph and blocker workflow
 - Human-reviewed mock submission
 - Local audit-log export
@@ -293,7 +331,7 @@ Deliberately excluded:
 1. Connect the UI to a Qwen-powered document-extraction service.
 2. Publish the MuleRun pre-flight workflow and move workflow state into durable storage.
 3. Build a professionally reviewed, versioned Sri Lankan VAT rules pack.
-4. Add structured VAT-schedule, ledger and CUSDEC parsers.
+4. Extend the working VAT Schedule CSV parser to the official workbook variants, ledger files and CUSDEC evidence.
 5. Evaluate field-level extraction accuracy on a held-out synthetic dataset.
 6. Pilot with authorised finance and tax professionals before handling production data.
 
@@ -302,6 +340,9 @@ Deliberately excluded:
 - [IRD Notice PN/SVAT/2025-01 - Abolition of SVAT and introduction of RBRS](https://www.ird.gov.lk/en/Lists/Latest%20News%20%20Notices/Attachments/718/PN_SVAT_2025-01_22092025_E.pdf)
 - [IRD Circular SEC/2025/E/06 - Risk-Based Refund Scheme](https://www.ird.gov.lk/en/publications/Circulars_Circulars/SEC_2025_E_06_E.pdf)
 - [Gazette Extraordinary No. 2500/106 - invoice-format effective-date amendment](https://www.ird.gov.lk/en/publications/Gazette_Documents/2026_2500_106_E.pdf)
+- [Gazette Extraordinary No. 2481/22 - tax-invoice format and specification](https://www.ird.gov.lk/en/publications/Gazette_Documents/2026_2481-22_E.pdf)
+- [IRD VAT rates and registration reference](https://www.ird.gov.lk/en/type%20of%20taxes/sitepages/value%20added%20tax%20(vat).aspx)
+- [IRD VAT schedule downloads](https://www.ird.gov.lk/en/Downloads/SitePages/Schedules.aspx?menuid=1604)
 - [IRD Inactive VAT List](https://www.ird.gov.lk/en/publications/SitePages/Inactive%20VAT%20List.aspx?menuid=1411)
 - [IRD Schedule File Verifier tools](https://www.ird.gov.lk/en/Downloads/SitePages/Tools.aspx)
 

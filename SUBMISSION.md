@@ -21,6 +21,8 @@ In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 Oc
 - **Multi-Agent Pre-flight Workflow:** Document Compliance, Supplier Reconciliation and Refund Readiness agents run behind a local orchestrator, with a MuleRun-ready adapter and an explicit human approval gate.
 - **Regulatory Watch Agent:** A scheduled check surfaces changes to published IRD sources and summarises the impact. Detection is simulated in this MVP; the approval gate is real, and no rule pack activates without a named human tax reviewer.
 - **Deterministic scoring, not model-generated:** An LLM never produces the readiness score. It is plain TypeScript, so every point is reproducible by hand.
+- **Live VAT Schedule Reconciliation:** A user-uploaded CSV is parsed deterministically and matched to the extracted invoice by invoice number, supplier TIN, net value, VAT and gross value. Every variance is visible and routed to the human gate.
+- **Refund Evidence Passport:** The prototype exports a source-dated JSON evidence manifest containing findings, rule sources, workflow trace and audit history, plus a SHA-256 content digest.
 
 ### Technical Brief
 - **Application:** Next.js 15 (App Router), React 19, TypeScript. API routes serve as the backend; there is no separate service.
@@ -28,6 +30,7 @@ In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 Oc
 - **AI Integration:** Alibaba Cloud Model Studio (`qwen-vl-plus`) through the OpenAI-compatible endpoint, called only from server-side code.
 - **Browser automation:** Playwright drives a mock tax portal bundled with the app at `/mock-portal`. It never contacts the Inland Revenue Department.
 - **Workflow:** A local multi-agent orchestrator with a **MuleRun-ready adapter**. The adapter is implemented and verified end to end against a stub webhook, including the failure path; publishing the production MuleRun workflow is the next roadmap stage. MuleRun findings are advisory only and can never move the score.
+- **Evidence ingestion:** Invoice images (up to 10 MB) and VAT Schedule CSV files (up to 2 MB / 2,000 rows) are accepted. Schedule values are parsed without an LLM and held only in the in-memory demo run store.
 - **Live vs fallback:** The header shows `AI: LIVE QWEN` or `DEMO FALLBACK`, and `Workflow: LIVE MULERUN` or `LOCAL ORCHESTRATOR`. Fixture data is never presented as a live model response.
 
 ### Impact
@@ -36,7 +39,7 @@ ComplyPilot transforms a historically reactive, penalty-driven process into a pr
 ### Roadmap
 - **Publish the MuleRun production workflow:** the adapter and fallback are already in place; only the hosted workflow is outstanding.
 - **Live Regulatory Watch:** replace simulated detection with real scheduled source monitoring, keeping the human approval gate.
-- **Live IRD & Customs Integration:** Moving from synthetic data to direct API connections with ASYCUDA (Customs) and the RAMIS (IRD) portals.
+- **Expanded evidence ingestion:** Extend the working VAT Schedule CSV flow to official workbook variants, ledgers and authorised Customs evidence before considering any live government integration.
 - **Supplier Notification Engine:** Automated outreach to suppliers to correct non-compliant invoices before the filing deadline.
 - **Expanded Rule Packs:** Supporting additional export verticals (e.g., apparel, tea) and local tax permutations.
 - **Enterprise Dashboard:** Multi-tenant support for tax agents managing hundreds of exporter clients simultaneously.
@@ -45,7 +48,7 @@ ComplyPilot transforms a historically reactive, penalty-driven process into a pr
 
 This is a hackathon prototype and decision-support concept, not tax, accounting or legal advice.
 
-- Synthetic data only; no real taxpayer data or credentials.
+- Synthetic supplier and Customs data only; optional user-uploaded invoice and schedule evidence is ephemeral and never committed to the repository.
 - No live IRD filing. The GUI agent operates a mock portal bundled with the app.
 - The readiness score is an internal, published proxy. It does not reproduce the IRD's official Low/Medium/High risk model and does not guarantee a refund or payment date.
 - No unattended filing: a human approves before submission, and one-time passwords are always entered by a person.

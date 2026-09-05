@@ -1,0 +1,14 @@
+{
+  "lastVerifiedAt": "2026-09-05",
+  "sources": ["SLC-TARIFF-2026", "SLC-HS-CLASSIFICATION"],
+  "uses": [
+    "Suggest candidate HS-code evidence for human review",
+    "Check that a CUSDEC reference is linked to the matching export schedule item",
+    "Record which tariff edition and source date were used"
+  ],
+  "guardrails": [
+    "Never present a web tariff lookup as legal evidence.",
+    "Never auto-submit a Customs classification or declaration.",
+    "Route ambiguous codes, descriptions and rates to an authorised reviewer."
+  ]
+}

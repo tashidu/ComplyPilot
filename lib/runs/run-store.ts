@@ -18,6 +18,7 @@ export type StoredRun = {
   extraction: InvoiceExtraction | null;
   mode: AnalyzeResult["mode"];
   fallbackReason: string | null;
+  scheduleEvidence: AnalyzeResult["scheduleEvidence"];
   createdAt: number;
 };
 
@@ -41,6 +42,7 @@ export function rememberRun(result: AnalyzeResult): void {
     extraction: result.invoice ?? null,
     mode: result.mode,
     fallbackReason: result.fallbackReason,
+    scheduleEvidence: result.scheduleEvidence,
     createdAt: Date.now(),
   });
 }

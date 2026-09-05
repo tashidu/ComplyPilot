@@ -1,0 +1,18 @@
+{
+  "sourceId": "IRD-VAT-SCHEDULES",
+  "lastVerifiedAt": "2026-09-05",
+  "schedules": [
+    { "id": "VAT-01", "name": "Output Schedule", "evidenceRole": "Sales and output VAT" },
+    { "id": "VAT-02", "name": "Input Schedule — Local Purchases", "evidenceRole": "Local purchase invoices and input VAT" },
+    { "id": "VAT-03", "name": "Input Schedule — Imports", "evidenceRole": "Import declarations and input VAT" },
+    { "id": "VAT-04", "name": "Credit/Debit Notes Schedule", "evidenceRole": "Adjustments linked to original documents" },
+    { "id": "VAT-05", "name": "Deemed Input Schedule — Wholesale/Retail", "evidenceRole": "Applicable deemed-input evidence" },
+    { "id": "VAT-06", "name": "Goods Export Schedule", "evidenceRole": "Goods-export sales matched with Customs evidence" },
+    { "id": "VAT-07", "name": "Service Export Schedule", "evidenceRole": "Service-export sales matched with receipt and contract evidence" }
+  ],
+  "amendmentSchedulesAvailableFor": ["VAT-01", "VAT-02", "VAT-03", "VAT-04", "VAT-05", "VAT-06", "VAT-07"],
+  "validation": {
+    "officialStructuralCheck": "IRD Schedule File Verifier Tool",
+    "complyPilotAdditionalCheck": "Cross-document reconciliation against invoices, ledger, supplier evidence and Customs evidence"
+  }
+}

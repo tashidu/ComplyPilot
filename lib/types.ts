@@ -67,6 +67,46 @@ export type WorkflowInfo = {
   gate: "NEEDS_HUMAN" | "READY_TO_FILE";
 };
 
+export type VatScheduleRow = {
+  rowNumber: number;
+  invoiceNumber: string | null;
+  supplierTin: string | null;
+  netAmount: number | null;
+  vatAmount: number | null;
+  grossAmount: number | null;
+};
+
+export type VatScheduleEvidence = {
+  fileName: string;
+  uploadedAt: string;
+  headers: string[];
+  rows: VatScheduleRow[];
+  warnings: string[];
+};
+
+export type ReconciliationVariance = {
+  field: "invoiceNumber" | "supplierTin" | "netAmount" | "vatAmount" | "grossAmount";
+  label: string;
+  invoiceValue: string | number | null;
+  scheduleValue: string | number | null;
+  difference: number | null;
+};
+
+export type ScheduleReconciliation = {
+  status: "NOT_UPLOADED" | "NEEDS_INVOICE" | "MATCHED" | "MISMATCH";
+  fileName: string | null;
+  rowCount: number;
+  matchedRowNumber: number | null;
+  matchedFields: string[];
+  variances: ReconciliationVariance[];
+  warnings: string[];
+  totals: {
+    netAmount: number | null;
+    vatAmount: number | null;
+    grossAmount: number | null;
+  } | null;
+};
+
 export type AnalyzeResult = {
   runId: string;
   mode: "LIVE_QWEN" | "DEMO_FALLBACK";
@@ -74,6 +114,8 @@ export type AnalyzeResult = {
   /** Why the run fell back to fixtures. Null on a live run. Shown in the UI. */
   fallbackReason: string | null;
   invoice: any | null; // From Qwen
+  scheduleEvidence: VatScheduleEvidence | null;
+  scheduleReconciliation: ScheduleReconciliation;
   findings: Finding[];
   score: Score;
   claimValueUnderReviewLkr: number;

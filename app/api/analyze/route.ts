@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
+import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
+import type { VatScheduleEvidence } from "@/lib/types";
+import { SUPPORTED_IMAGE_TYPES } from "@/lib/ai/qwen-client";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
 
 function now() {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -14,21 +18,34 @@ export async function POST(req: Request) {
 
     // Process image if available
     let image: UploadedImage | null = null;
+    let scheduleUpload: VatScheduleEvidence | undefined;
     const file = formData.get("file");
     if (file instanceof File && file.size > 0) {
-      if (file.size > MAX_FILE_BYTES) {
+      const isCsv = file.type === "text/csv" || file.name.toLowerCase().endsWith(".csv");
+      const limit = isCsv ? MAX_CSV_BYTES : MAX_FILE_BYTES;
+      if (file.size > limit) {
         return NextResponse.json(
-          { error: `File is larger than the ${MAX_FILE_BYTES / 1024 / 1024} MB limit.` },
+          { error: `File is larger than the ${limit / 1024 / 1024} MB limit.` },
           { status: 413 },
         );
       }
-      const arrayBuffer = await file.arrayBuffer();
-      image = {
-        base64: Buffer.from(arrayBuffer).toString("base64"),
-        // Carry the real content type through; the vision model rejects a
-        // PNG or PDF that has been mislabelled as a JPEG.
-        mimeType: file.type || "application/octet-stream",
-      };
+      if (isCsv) {
+        scheduleUpload = parseVatScheduleCsv(await file.text(), file.name);
+      } else {
+        if (!SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+          return NextResponse.json(
+            { error: "Upload a JPEG, PNG, WebP or BMP invoice image, or a VAT Schedule CSV." },
+            { status: 415 },
+          );
+        }
+        const arrayBuffer = await file.arrayBuffer();
+        image = {
+          base64: Buffer.from(arrayBuffer).toString("base64"),
+          // Carry the real content type through; the vision model rejects a
+          // PNG or PDF that has been mislabelled as a JPEG.
+          mimeType: file.type || "application/octet-stream",
+        };
+      }
     }
 
     const futureRules = formData.get("futureRules") === "true";
@@ -37,12 +54,18 @@ export async function POST(req: Request) {
 
     // Continue an existing run when no new file is supplied, so a live
     // extraction is not replaced by fixtures on a rule-profile change.
-    const previous = image ? undefined : recallRun(formData.get("runId") as string | null);
-    const result = await runOrchestrator(image, futureRules, resolvedBlockers, previous);
+    const previous = recallRun(formData.get("runId") as string | null);
+    const result = await runOrchestrator(
+      image,
+      futureRules,
+      resolvedBlockers,
+      previous,
+      scheduleUpload,
+    );
     rememberRun(result);
 
     // Audit events must describe what actually happened, never what was intended.
-    if (!image && resolvedBlockers.length === 0) {
+    if (!image && !scheduleUpload && resolvedBlockers.length === 0) {
       result.auditEvents = [
         {
           time: now(),
@@ -55,6 +78,15 @@ export async function POST(req: Request) {
           actor: "agent",
           title: "Demo fixture loaded",
           detail: "No document was uploaded, so the synthetic demo case is shown.",
+        },
+      ];
+    } else if (scheduleUpload) {
+      result.auditEvents = [
+        {
+          time: now(),
+          actor: "agent",
+          title: "VAT Schedule CSV parsed and reconciled",
+          detail: `${scheduleUpload.fileName}: ${scheduleUpload.rows.length} rows parsed; result ${result.scheduleReconciliation.status}.`,
         },
       ];
     } else if (image) {
@@ -78,6 +110,9 @@ export async function POST(req: Request) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error in /api/analyze", error);
+    if (error instanceof ScheduleParseError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: "Failed to analyze document" }, { status: 500 });
   }
 }

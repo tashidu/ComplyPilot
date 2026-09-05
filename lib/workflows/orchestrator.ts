@@ -2,8 +2,21 @@ import { extractInvoiceData } from "../ai/qwen-client";
 import { analyzeDocument } from "../agents/document-agent";
 import { analyzeReconciliation } from "../agents/reconciliation-agent";
 import { calculateReadiness, calculateClaimValue } from "../agents/readiness-agent";
-import { AnalyzeResult, Finding, TraceStage, WorkflowInfo } from "../types";
+import {
+  AnalyzeResult,
+  Finding,
+  TraceStage,
+  VatScheduleEvidence,
+  WorkflowInfo,
+} from "../types";
 import type { StoredRun } from "../runs/run-store";
+import {
+  governmentDataSummary,
+  inactiveVatSnapshot,
+  vatInvoiceRulePack,
+  vatRates,
+  vatSchedules,
+} from "../government-data";
 import {
   compareMuleRunResult,
   isMuleRunConfigured,
@@ -51,11 +64,14 @@ export async function runOrchestrator(
   resolvedBlockers: string[] = [],
   /** A previous run to continue, so a live extraction survives later clicks. */
   previous?: StoredRun,
+  /** A newly uploaded VAT Schedule CSV. Previous evidence is reused when omitted. */
+  scheduleUpload?: VatScheduleEvidence,
 ): Promise<AnalyzeResult> {
   const trace: TraceStage[] = [];
   let mode: AnalyzeResult["mode"] = "LIVE_QWEN";
   let fallbackReason: string | null = null;
   let extraction = null;
+  const scheduleEvidence = scheduleUpload ?? previous?.scheduleEvidence ?? null;
 
   if (image) {
     const started = performance.now();
@@ -111,11 +127,13 @@ export async function runOrchestrator(
   );
 
   // 2. Supplier & Reconciliation Agent
-  const reconFindings = await timed(trace, "Reconciliation Agent", () => analyzeReconciliation());
+  const reconciliation = await timed(trace, "Reconciliation Agent", () =>
+    analyzeReconciliation(extraction, scheduleEvidence),
+  );
 
   let allFindings: Finding[] = [];
   if (docFinding) allFindings.push(docFinding);
-  allFindings.push(...reconFindings);
+  allFindings.push(...reconciliation.findings);
 
   // Apply resolved status based on human actions
   allFindings = allFindings.map((finding) =>
@@ -140,9 +158,38 @@ export async function runOrchestrator(
         runId,
         ruleProfile: isFutureRules ? "v2026.10" : "historical",
         invoice: (extraction as Record<string, unknown> | null) ?? null,
-        schedule: { totalLkr: FIXTURE_TOTALS.scheduleLkr },
+        schedule: {
+          source: scheduleEvidence ? "upload" : "fixture",
+          fileName: scheduleEvidence?.fileName ?? null,
+          rowCount: scheduleEvidence?.rows.length ?? 0,
+          totalLkr: reconciliation.schedule.totals?.netAmount ?? FIXTURE_TOTALS.scheduleLkr,
+          rows: scheduleEvidence?.rows ?? [],
+        },
         cusdec: { totalLkr: FIXTURE_TOTALS.cusdecLkr },
         supplier: { snapshotDate: FIXTURE_TOTALS.supplierSnapshotDate },
+        governmentContext: {
+          sourceVerifiedAt: governmentDataSummary.lastVerifiedAt ?? "unknown",
+          invoiceRulePack: {
+            id: vatInvoiceRulePack.id,
+            version: vatInvoiceRulePack.version,
+            effectiveFrom: vatInvoiceRulePack.effectiveFrom,
+            sourceIds: vatInvoiceRulePack.sourceIds,
+          },
+          vatRates: vatRates.rates.map((rate) => ({
+            id: rate.id,
+            ratePercent: rate.ratePercent,
+            effectiveFrom: rate.effectiveFrom,
+          })),
+          schedules: vatSchedules.schedules.map((schedule) => ({
+            id: schedule.id,
+            name: schedule.name,
+          })),
+          supplierSnapshot: {
+            id: inactiveVatSnapshot.id,
+            effectiveDate: inactiveVatSnapshot.effectiveDate,
+            containsTaxpayerRecords: false,
+          },
+        },
         resolvedBlockers,
       };
       const result = await runMuleRunWorkflow(input);
@@ -210,6 +257,8 @@ export async function runOrchestrator(
     },
     fallbackReason,
     invoice: extraction,
+    scheduleEvidence,
+    scheduleReconciliation: reconciliation.schedule,
     findings: allFindings,
     score,
     claimValueUnderReviewLkr,

@@ -24,9 +24,46 @@ export const WorkflowInputSchema = z.object({
   runId: z.string(),
   ruleProfile: z.string(),
   invoice: z.record(z.string(), z.unknown()).nullable(),
-  schedule: z.object({ totalLkr: z.number() }),
+  schedule: z.object({
+    source: z.enum(["fixture", "upload"]),
+    fileName: z.string().nullable(),
+    rowCount: z.number().int().nonnegative(),
+    totalLkr: z.number(),
+    rows: z.array(
+      z.object({
+        rowNumber: z.number().int().positive(),
+        invoiceNumber: z.string().nullable(),
+        supplierTin: z.string().nullable(),
+        netAmount: z.number().nullable(),
+        vatAmount: z.number().nullable(),
+        grossAmount: z.number().nullable(),
+      }),
+    ),
+  }),
   cusdec: z.object({ totalLkr: z.number() }),
   supplier: z.object({ snapshotDate: z.string() }),
+  governmentContext: z.object({
+    sourceVerifiedAt: z.string(),
+    invoiceRulePack: z.object({
+      id: z.string(),
+      version: z.string(),
+      effectiveFrom: z.string(),
+      sourceIds: z.array(z.string()),
+    }),
+    vatRates: z.array(
+      z.object({
+        id: z.string(),
+        ratePercent: z.number(),
+        effectiveFrom: z.string().nullable(),
+      }),
+    ),
+    schedules: z.array(z.object({ id: z.string(), name: z.string() })),
+    supplierSnapshot: z.object({
+      id: z.string(),
+      effectiveDate: z.string(),
+      containsTaxpayerRecords: z.boolean(),
+    }),
+  }),
   resolvedBlockers: z.array(z.string()),
 });
 

@@ -1,0 +1,10 @@
+{
+  "id": "IRD-INACTIVE-VAT-2025-11-18",
+  "sourceId": "IRD-INACTIVE-VAT",
+  "effectiveDate": "2025-11-18",
+  "lastVerifiedAt": "2026-09-05",
+  "status": "metadata-only",
+  "records": [],
+  "note": "No taxpayer names or TINs are bundled in this public hackathon repository. The date is displayed so a reviewer can see that the source is a snapshot, not real-time status.",
+  "productionRequirement": "Fetch and parse an authorised current source, preserve its effective date and require human confirmation before a supplier-status decision."
+}

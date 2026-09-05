@@ -3,6 +3,7 @@
 import type { AnalyzeResult } from "@/lib/types";
 import { PageHead, SectionHead } from "./ui";
 import { RegulatoryWatchPanel } from "./regulatory-watch-panel";
+import { GovernmentDataPanel } from "./government-data-panel";
 
 export function RulesView({
   result,
@@ -19,8 +20,9 @@ export function RulesView({
   onToggleNotice2: () => void;
   onAgentEvent?: (actor: "agent" | "human", title: string, detail: string) => void;
 }) {
-  const invoiceFixed = result.findings.find(f => f.id === "invoice")?.status === "resolved";
-  const futureIssues = futureRules && !invoiceFixed;
+  const invoiceStatus = result.findings.find((finding) => finding.id === "invoice")?.status;
+  const invoiceFixed = invoiceStatus === "resolved";
+  const futureIssues = futureRules && invoiceStatus === "open";
 
   return (
     <>
@@ -108,6 +110,9 @@ export function RulesView({
           </div>
         </article>
       </div>
+
+      <SectionHead title="Government data layer" />
+      <GovernmentDataPanel />
 
       <SectionHead title="Regulatory watch" />
       <RegulatoryWatchPanel onAgentEvent={onAgentEvent} />
