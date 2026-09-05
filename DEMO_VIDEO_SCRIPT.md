@@ -2,6 +2,14 @@
 
 This script matches the exact UI and workflow we built for the Alibaba Cloud AI Buildathon submission. Follow this click-by-click to record a clean, 3-minute demonstration.
 
+## Key Features Demonstrated
+1. **Zero-Error VAT Document Processing**: Automated extraction of invoice data using Alibaba Cloud Qwen-VL-Plus.
+2. **Interactive AI Chatbox (Data Copilot)**: A grounded assistant that answers questions based on the specific run's data and official tax references.
+3. **RAMIS GUI Filing Agent Integration**: Automated, human-approved submission of the final package via a mock portal.
+4. **Explainable AI Evidence Graph**: Visual tracing of how every document extraction maps to official tax rules.
+5. **Regulatory Time Machine**: Deterministic testing of evidence against both historical and future Gazetted rule profiles.
+6. **Pre-flight What-If Rescue**: Instant simulation of compliance score improvements when missing evidence is provided.
+
 ## Before recording
 
 ```bash
