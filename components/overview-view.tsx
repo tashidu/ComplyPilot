@@ -70,6 +70,12 @@ export function OverviewView({
       </div>
       <ScheduleReconciliationCard result={result} />
 
+      <div className="section-head" style={{ marginTop: 32 }}>
+        <h2>Ask your data</h2>
+        <span className="tag brand">AI COPILOT</span>
+      </div>
+      <ChatboxMockCard />
+
       <div className="section-head">
         <h2>Current evidence position</h2>
         <span className="subtle">Updated just now</span>
@@ -502,3 +508,43 @@ function AgentCard({
     </article>
   );
 }
+
+function ChatboxMockCard() {
+  return (
+    <article className="card pad" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="card-head">
+        <div>
+          <h2>Data Copilot</h2>
+          <p>Grounded in this analysis run and official VAT reference data.</p>
+        </div>
+        <span className="pill live"><i className="dot" /> LIVE QWEN</span>
+      </div>
+      
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, backgroundColor: "var(--bg-subtle)", padding: 16, borderRadius: 8 }}>
+        <div style={{ alignSelf: "flex-end", backgroundColor: "var(--brand)", color: "white", padding: "8px 12px", borderRadius: "12px 12px 0 12px", maxWidth: "80%" }}>
+          Why is this case blocked?
+        </div>
+        
+        <div style={{ alignSelf: "flex-start", backgroundColor: "var(--bg)", border: "1px solid var(--border)", padding: "12px", borderRadius: "12px 12px 12px 0", maxWidth: "80%" }}>
+          <p style={{ margin: "0 0 8px 0" }}>This run&apos;s internal readiness score is 68/100. Open evidence blockers: Missing Invoice Serial (GZ-2481-22); Unverified Supplier (IRD-INACTIVE-VAT).</p>
+          <p style={{ margin: 0 }}>Next, review: Upload a clear invoice image to satisfy the 1 October 2026 rule pack.</p>
+          <div style={{ marginTop: 12, display: "flex", gap: 6 }}>
+            <span className="tag">GZ-2481-22</span>
+            <span className="tag">IRD-INACTIVE-VAT</span>
+          </div>
+        </div>
+      </div>
+      
+      <div style={{ display: "flex", gap: 8 }}>
+        <input 
+          type="text" 
+          placeholder="Ask about this case..." 
+          style={{ flex: 1, padding: "8px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)" }}
+          disabled 
+        />
+        <button className="button primary" disabled>Send</button>
+      </div>
+    </article>
+  );
+}
+
