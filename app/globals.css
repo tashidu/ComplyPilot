@@ -3283,3 +3283,162 @@ td small {
     flex-direction: column;
   }
 }
+
+/* ------------------------------------------------------- welcome gate */
+
+.gate {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 24px 16px;
+  background: var(--canvas);
+}
+
+.gate-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.gate-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.gate-brand strong {
+  display: block;
+  font-size: 15px;
+}
+
+.gate-brand small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.gate-card h1 {
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.gate-lead {
+  margin-top: 8px;
+  color: var(--ink-soft);
+}
+
+/* The guest path is the primary action: an evaluator should not have to read
+   past a form to reach the product. */
+.gate-guest {
+  margin-top: 20px;
+}
+
+.gate-guest-note {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.gate-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0 16px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.gate-divider::before,
+.gate-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.gate-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+}
+
+.gate-tabs button {
+  padding: 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.gate-tabs button.active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.gate-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.gate-form label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.gate-form input,
+.gate-form select {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-weight: 400;
+}
+
+.gate-form input:focus-visible,
+.gate-form select:focus-visible {
+  border-color: var(--brand);
+}
+
+.gate-error {
+  padding: 8px 11px;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 12.5px;
+}
+
+.gate-warning {
+  margin-top: 18px;
+  padding: 10px 12px;
+  border: 1px solid var(--brand-strong);
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .gate-card {
+    padding: 20px;
+  }
+}

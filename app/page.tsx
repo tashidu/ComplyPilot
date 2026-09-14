@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuditView } from "@/components/audit-view";
 import { AccountView } from "@/components/account-view";
+import { WelcomeGate } from "@/components/welcome-gate";
 import { BusinessProfileView, type ProfileFormValue } from "@/components/business-profile-view";
 import { DataCopilot } from "@/components/data-copilot";
 import { EvidenceView } from "@/components/evidence-view";
@@ -26,6 +27,9 @@ import type { BusinessWorkspace, WorkspaceTask } from "@/lib/workspace/workspace
 
 type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
 
+/** Remembers that this browser chose to continue without an account. */
+const GUEST_CHOICE_KEY = "cp_guest_choice";
+
 export default function Page() {
   const [view, setView] = useState<ViewId>("overview");
   const [futureRules, setFutureRules] = useState(true);
@@ -33,6 +37,11 @@ export default function Page() {
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
   const [workspace, setWorkspace] = useState<BusinessWorkspace | null>(null);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  /**
+   * Whether the welcome screen has been answered. Null until the browser has
+   * been read, so the server render and the first client render agree.
+   */
+  const [guestChoice, setGuestChoice] = useState<boolean | null>(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -128,6 +137,27 @@ export default function Page() {
       return null;
     }
   }, [postWorkspaceAction, showToast]);
+
+  useEffect(() => {
+    // localStorage is read here rather than during render: it does not exist on
+    // the server, and reading it in render would desync hydration. A browser
+    // that blocks storage simply sees the welcome screen again.
+    try {
+      setGuestChoice(window.localStorage.getItem(GUEST_CHOICE_KEY) === "1");
+    } catch {
+      setGuestChoice(false);
+    }
+  }, []);
+
+  const chooseGuest = useCallback(() => {
+    try {
+      window.localStorage.setItem(GUEST_CHOICE_KEY, "1");
+    } catch {
+      // Storage is unavailable; the visitor continues and is asked again next
+      // visit. Entry is never blocked on being able to remember the answer.
+    }
+    setGuestChoice(true);
+  }, []);
 
   useEffect(() => {
     if (initialised.current) return;
@@ -458,6 +488,21 @@ export default function Page() {
     navigate("overview");
     showToast("Active-period analysis reset");
   }, [activePeriod, activeProfile, fetchAnalysis, navigate, showToast]);
+
+  // The welcome screen precedes the workspace load, so a visitor sees a choice
+  // immediately instead of a spinner. A signed-in visitor never sees it.
+  if (guestChoice === null) return null;
+  if (!authUser && !guestChoice) {
+    return (
+      <WelcomeGate
+        onGuest={chooseGuest}
+        onAuthenticated={(user) => {
+          setAuthUser(user);
+          chooseGuest();
+        }}
+      />
+    );
+  }
 
   if (!workspace || !activeProfile || !activePeriod || !analyzeResult) {
     return (
