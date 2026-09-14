@@ -1,8 +1,8 @@
 # ComplyPilot RefundShield
 
-**VAT Refund Readiness & Evidence Autopilot for Sri Lankan exporters**
+**VAT Compliance & Evidence Autopilot for Sri Lanka's VAT-registered businesses**
 
-ComplyPilot helps an exporter find invoice, supplier, VAT-schedule and Customs-evidence blockers before filing. It provides an explainable refund-readiness score, a prioritised action plan, a statutory 45-day clock scenario and a complete human-reviewed audit trail.
+ComplyPilot helps any VAT-registered business find invoice, supplier, VAT-schedule and Customs-evidence blockers before filing. It provides an explainable refund-readiness score, a prioritised action plan, a statutory 45-day clock scenario and a complete human-reviewed audit trail.
 
 > ComplyPilot does **not** predict the Inland Revenue Department's official Low/Medium/High risk category and does not guarantee a VAT refund date. The score is a transparent internal readiness proxy.
 
@@ -258,7 +258,7 @@ or an IRD acknowledgement.
 
 Sri Lanka replaced the Simplified VAT scheme with a Risk-Based Refund Scheme from 1 October 2025. Eligible registrants are categorised as Low, Medium or High risk, and the processing path depends on that categorisation. The official notice also explains that a Notice 2 issued for missing schedules or schedule errors can change when the 45-day period begins.
 
-At the same time, a revised VAT tax-invoice format becomes effective on 1 October 2026. Exporters therefore need more than an invoice generator: they need a continuous way to connect invoice evidence, supplier information, VAT schedules and Customs records before submission.
+At the same time, a revised VAT tax-invoice format becomes effective on 1 October 2026. Every VAT-registered business therefore needs more than an invoice generator: it needs a continuous way to connect invoice evidence, supplier information, VAT schedules and, where they apply, Customs records before submission.
 
 ## Product architecture
 

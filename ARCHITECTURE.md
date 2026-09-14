@@ -6,7 +6,7 @@
 
 ## 1. What problem this actually solves
 
-Sri Lanka's VAT system is changing fast and in ways that create real financial risk for exporters:
+Sri Lanka's VAT system is changing fast and in ways that create real financial risk for any VAT-registered business:
 
 - A **new invoice format** becomes mandatory 1 October 2026 (Gazette 2481/22, amended by 2500/106).
 - The old Simplified VAT scheme was replaced by a **Risk-Based Refund Scheme**, with a 45-day processing clock that can restart if IRD issues a "Notice 2" for missing/wrong schedules.

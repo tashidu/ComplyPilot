@@ -131,7 +131,7 @@ These rules are mandatory in code, UI text, README, video, and pitch.
 
 ### Primary user
 
-A finance manager or accountant at a Sri Lankan exporter affected by post-SVAT cash-flow and refund-evidence requirements.
+A finance manager or accountant at a Sri Lankan VAT-registered business - including, but not limited to, exporters affected by post-SVAT cash-flow and refund-evidence requirements.
 
 ### Golden use case
 

@@ -5,7 +5,7 @@ This file is the implementation contract for the AI development agent. Build the
 ## 1. Product definition
 
 **Product:** ComplyPilot RefundShield  
-**Primary user:** Sri Lankan exporter finance and tax teams  
+**Primary user:** Finance and tax teams at Sri Lanka's VAT-registered businesses  
 **One-line promise:** Turn invoices and supporting records into an explainable, human-reviewed VAT refund-readiness package.
 
 ### Positioning

@@ -47,7 +47,7 @@ Frame only the relevant card during each scene. Move the pointer slowly, pause o
 
 **Do:** Let the score card fill the frame. Point out the score (`68/100`) and the priority blockers.
 
-> "Sri Lankan exporters often lose valuable time on their VAT refunds because simple documentary errors or customs mismatches are only discovered *after* filing. ComplyPilot RefundShield catches those errors before filing. It reads the documents with Qwen, checks them against the Gazetted rule that applied on the invoice date, and prepares a human-approved evidence package. Right now, our readiness score is 68 out of 100, and we have unresolved blockers requiring attention to protect our 45-day refund clock."
+> "Sri Lankan businesses lose valuable time and input VAT because simple documentary errors or mismatched schedules are only discovered *after* filing. ComplyPilot RefundShield catches those errors before filing. It reads the documents with Qwen, checks them against the Gazetted rule that applied on the invoice date, and prepares a human-approved evidence package. Right now, our readiness score is 68 out of 100, and we have unresolved blockers requiring attention to protect our 45-day refund clock."
 
 ---
 
@@ -100,7 +100,7 @@ Do not ask an open-ended general tax question. The suggested question is designe
 2. Under "Choose the applicable rule profile", toggle between **Before 1 Oct 2026** and **Effective 1 Oct 2026**. 
 3. Show how the decision panel changes (Action required vs Passed).
 
-> "Tax rules change. Our Regulatory Time Machine lets exporters see how the same evidence behaves under different Gazetted rules. When we switch to the October 2026 invoice profile, the system instantly recalculates our compliance gaps against official government sources."
+> "Tax rules change. Our Regulatory Time Machine lets a business see how the same evidence behaves under different Gazetted rules. When we switch to the October 2026 invoice profile, the system instantly recalculates our compliance gaps against official government sources."
 
 Keep it short: just show the date toggle and one rule change. Skip the Notice 2 simulation to stay on time.
 
@@ -129,6 +129,6 @@ Keep it short: just show the date toggle and one rule change. Skip the Notice 2 
 2. Scroll through the timeline showing agent actions, human resolutions, and the filing event.
 3. Optionally click **Export synthetic audit log** (a JSON file downloads).
 
-> "Every action taken by Qwen, our deterministic agents, and the human reviewer is permanently logged in a verifiable audit trail. With ComplyPilot, exporters get fewer preventable errors, faster internal reviews, and a defensible evidence trail for the 45-day VAT refund clock."
+> "Every action taken by Qwen, our deterministic agents, and the human reviewer is permanently logged in a verifiable audit trail. With ComplyPilot, any VAT-registered business gets fewer preventable errors, faster internal reviews, and a defensible evidence trail."
 
 *End recording.*

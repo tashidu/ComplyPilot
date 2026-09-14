@@ -18,10 +18,10 @@
 ## 1. Project Brief
 
 ### Problem
-In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 October 2025. This shifts exporters from a voucher-based system to a cash-intensive, standard 45-day VAT refund framework. Delayed refunds—often caused by simple documentary errors, misaligned data between customs and schedules, or non-compliant supplier invoices—can severely cripple an exporter's cash flow. Compliance now directly controls cash flow, and traditional manual reconciliation is too slow and error-prone to protect the 45-day refund clock.
+In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 October 2025. This shifts affected businesses from a voucher-based system to a cash-intensive, standard 45-day VAT refund framework. At the same time a revised tax-invoice format becomes mandatory on 1 October 2026, which every VAT-registered business must meet. Delayed refunds and rejected input-VAT claims—often caused by simple documentary errors, misaligned data between customs and schedules, or non-compliant supplier invoices—can severely damage a business's cash flow. Compliance now directly controls cash flow, and traditional manual reconciliation is too slow and error-prone to protect the 45-day refund clock.
 
 ### Solution
-**ComplyPilot RefundShield** is a VAT Refund Readiness & Compliance Autopilot designed specifically for Sri Lankan exporters. It reads VAT documents with Qwen-VL, validates them against deterministic, date-aware rules, and prepares a human-approved evidence package. A grounded AI copilot answers questions about the current case, and a GUI filing agent demonstrates submission against a bundled mock portal for businesses not yet integrated with IRD's Web API. It acts as a pre-flight check before official submission. ComplyPilot continuously analyzes invoices, supplier data, VAT schedules, and customs records. It explains every compliance blocker, estimates the earliest eligible refund timeline, runs deterministic checks based on Gazetted rules (e.g., October 2026 invoice formats), and prepares a traceable, human-approved evidence trail to ensure the 45-day refund clock isn't derailed by basic errors.
+**ComplyPilot RefundShield** is a VAT Compliance & Refund Readiness Autopilot for Sri Lanka's VAT-registered businesses. It reads VAT documents with Qwen-VL, validates them against deterministic, date-aware rules, and prepares a human-approved evidence package. A grounded AI copilot answers questions about the current case, and a GUI filing agent demonstrates submission against a bundled mock portal for businesses not yet integrated with IRD's Web API. It acts as a pre-flight check before official submission. ComplyPilot continuously analyzes invoices, supplier data, VAT schedules, and customs records. It explains every compliance blocker, estimates the earliest eligible refund timeline, runs deterministic checks based on Gazetted rules (e.g., October 2026 invoice formats), and prepares a traceable, human-approved evidence trail to ensure the 45-day refund clock isn't derailed by basic errors.
 
 ### AI Features in Your Product
 - **Multimodal Document Extraction:** Alibaba Cloud **Qwen-VL** via Model Studio extracts structured invoice fields from photographed invoices, with per-field confidence and source text. Every model response is schema-validated with Zod before it is used.
@@ -43,7 +43,7 @@ In Sri Lanka, the Simplified VAT (SVAT) scheme is being abolished effective 1 Oc
 - **Live vs fallback:** The header shows `AI: LIVE QWEN` or `DEMO FALLBACK`, and `Workflow: LIVE MULERUN` or `LOCAL ORCHESTRATOR`. Fixture data is never presented as a live model response.
 
 ### Impact
-ComplyPilot transforms a historically reactive, penalty-driven process into a proactive, cash-flow-protecting strategy. By automatically catching compliance blockers *before* filing, it ensures that Sri Lankan exporters can confidently rely on the 45-day refund framework. This safeguards millions of rupees in working capital, reduces friction with the Inland Revenue Department (IRD), and significantly lowers administrative overhead.
+ComplyPilot transforms a historically reactive, penalty-driven process into a proactive, cash-flow-protecting strategy. By automatically catching compliance blockers *before* filing, it lets a VAT-registered business file with evidence it can defend, and rely on the 45-day refund framework where it applies. This safeguards working capital, reduces friction with the Inland Revenue Department (IRD), and significantly lowers administrative overhead.
 
 ### Roadmap
 - **Publish the MuleRun production workflow:** the adapter and fallback are already in place; only the hosted workflow is outstanding.
@@ -51,7 +51,7 @@ ComplyPilot transforms a historically reactive, penalty-driven process into a pr
 - **Expanded evidence ingestion:** Extend the working VAT Schedule CSV flow to official workbook variants, ledgers and authorised Customs evidence before considering any live government integration.
 - **Supplier Notification Engine:** Automated outreach to suppliers to correct non-compliant invoices before the filing deadline.
 - **Expanded Rule Packs:** Supporting additional export verticals (e.g., apparel, tea) and local tax permutations.
-- **Enterprise Dashboard:** Multi-tenant support for tax agents managing hundreds of exporter clients simultaneously.
+- **Enterprise Dashboard:** Multi-tenant support for tax agents managing hundreds of client businesses simultaneously.
 
 ### Scope and boundaries
 

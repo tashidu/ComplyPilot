@@ -63,7 +63,7 @@ export const EVIDENCE_INVENTORY = [
   {
     name: "Invoice batch OCT-26",
     note: "10 photographed invoices",
-    source: "Exporter upload",
+    source: "Taxpayer upload",
     effective: "18 Oct 2026",
     fresh: true,
     status: "2 fields need review",

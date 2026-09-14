@@ -64,7 +64,7 @@ export function WelcomeGate({
           </div>
         </div>
 
-        <h1>VAT refund readiness for Sri Lankan exporters</h1>
+        <h1>VAT compliance and refund readiness for Sri Lankan businesses</h1>
         <p className="gate-lead">
           Check invoice evidence against the rule in force on its date, before filing.
         </p>

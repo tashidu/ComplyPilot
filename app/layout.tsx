@@ -4,12 +4,12 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ComplyPilot RefundShield",
   description:
-    "VAT refund readiness and evidence autopilot for Sri Lankan exporters. Synthetic demo data.",
+    "VAT compliance and refund readiness for Sri Lanka's VAT-registered businesses. Synthetic demo data.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );
