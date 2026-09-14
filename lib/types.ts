@@ -230,6 +230,8 @@ export type AnalyzeResult = {
   /** Why the run fell back to fixtures. Null on a live run. Shown in the UI. */
   fallbackReason: string | null;
   invoice: any | null; // From Qwen
+  /** The uploaded invoice as a data URL, for Smart Fix Studio's original-vs-draft view. Null for the synthetic demo case, which has no source image. */
+  invoiceImage: string | null;
   smartFix: SmartFixPlan;
   ruleSelection: RuleSelectionInfo;
   scheduleEvidence: VatScheduleEvidence | null;

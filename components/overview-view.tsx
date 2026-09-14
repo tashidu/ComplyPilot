@@ -14,6 +14,7 @@ type Props = {
   onFixAll: () => void;
   onOpenEvidence: (id: string) => void;
   onExportPassport: () => void;
+  onOpenSmartFix: () => void;
 };
 
 export function OverviewView({
@@ -25,6 +26,7 @@ export function OverviewView({
   onFixAll,
   onOpenEvidence,
   onExportPassport,
+  onOpenSmartFix,
 }: Props) {
   const openBlockers = result.findings.filter(f => f.status === "open");
   const score = result.score.total;
@@ -192,6 +194,11 @@ export function OverviewView({
                 <button className="button small" onClick={() => onOpenEvidence(finding.id)}>
                   Evidence
                 </button>
+                {finding.id === "invoice" ? (
+                  <button className="button small" onClick={onOpenSmartFix}>
+                    Smart Fix
+                  </button>
+                ) : null}
                 <button
                   className={`button small${resolved ? "" : " primary"}`}
                   disabled={inactive}

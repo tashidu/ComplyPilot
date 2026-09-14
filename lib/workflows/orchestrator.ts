@@ -176,6 +176,13 @@ export async function runOrchestrator(
   const runId =
     reusablePrevious?.runId ?? `RUN-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
 
+  // Smart Fix Studio shows the source image next to the draft correction. A
+  // later click (resolving a blocker, changing rule profile) carries no file,
+  // so the image from this run's own prior upload is carried forward with it.
+  const invoiceImage: string | null = image
+    ? `data:${image.mimeType};base64,${image.base64}`
+    : (reusablePrevious?.analysis.invoiceImage ?? null);
+
   // 1. Document Compliance Agent
   const docFinding = await timed(
     trace,
@@ -410,6 +417,7 @@ export async function runOrchestrator(
     },
     fallbackReason,
     invoice: extraction,
+    invoiceImage,
     smartFix,
     ruleSelection: {
       profile: ruleSelection.profile,

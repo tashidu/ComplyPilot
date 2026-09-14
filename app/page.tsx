@@ -6,6 +6,7 @@ import { EvidenceView } from "@/components/evidence-view";
 import { FilingView } from "@/components/filing-view";
 import { OverviewView } from "@/components/overview-view";
 import { RulesView } from "@/components/rules-view";
+import { SmartFixView } from "@/components/smart-fix-view";
 import { Sidebar, type ViewId } from "@/components/sidebar";
 import { Modal, Toast } from "@/components/ui";
 import { DataCopilot } from "@/components/data-copilot";
@@ -38,6 +39,11 @@ export default function Page() {
     if (!analyzeResult) return [];
     return analyzeResult.findings.filter(f => f.status === "open").map(f => f.id);
   }, [analyzeResult]);
+
+  const smartFixCount = useMemo(
+    () => analyzeResult?.smartFix.actions.filter((action) => action.decision === "NEEDS_HUMAN").length ?? 0,
+    [analyzeResult]
+  );
 
   const fetchAnalysis = useCallback(async (isFuture: boolean, currentResolved: string[], file?: File) => {
     try {
@@ -335,7 +341,12 @@ export default function Page() {
 
   return (
     <div className="shell">
-      <Sidebar view={view} onNavigate={navigate} openBlockers={openBlockers.length} />
+      <Sidebar
+        view={view}
+        onNavigate={navigate}
+        openBlockers={openBlockers.length}
+        smartFixCount={smartFixCount}
+      />
 
       <main className="main">
         <header className="topbar">
@@ -389,6 +400,7 @@ export default function Page() {
               onFixAll={fixAll}
               onOpenEvidence={openEvidence}
               onExportPassport={exportPassport}
+              onOpenSmartFix={() => navigate("smart-fix")}
             />
           ) : null}
 
@@ -397,6 +409,15 @@ export default function Page() {
               result={analyzeResult}
               active={activeEvidence}
               onSelect={setActiveEvidence}
+              onBack={() => navigate("overview")}
+            />
+          ) : null}
+
+          {view === "smart-fix" ? (
+            <SmartFixView
+              result={analyzeResult}
+              onSetProfile={setProfile}
+              onApprove={() => toggleResolve("invoice")}
               onBack={() => navigate("overview")}
             />
           ) : null}

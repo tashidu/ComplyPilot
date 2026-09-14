@@ -1,10 +1,11 @@
 "use client";
 
-export type ViewId = "overview" | "evidence" | "rules" | "filing" | "audit";
+export type ViewId = "overview" | "evidence" | "smart-fix" | "rules" | "filing" | "audit";
 
 const NAV: { id: ViewId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "evidence", label: "Evidence" },
+  { id: "smart-fix", label: "Smart Fix Studio" },
   { id: "rules", label: "Rules & time machine" },
   { id: "filing", label: "Mock filing" },
   { id: "audit", label: "Audit trail" },
@@ -14,10 +15,12 @@ export function Sidebar({
   view,
   onNavigate,
   openBlockers,
+  smartFixCount,
 }: {
   view: ViewId;
   onNavigate: (view: ViewId) => void;
   openBlockers: number;
+  smartFixCount: number;
 }) {
   return (
     <aside className="sidebar" aria-label="Primary">
@@ -43,6 +46,9 @@ export function Sidebar({
               <span>{item.label}</span>
               {item.id === "evidence" && openBlockers > 0 ? (
                 <span className="nav-count">{openBlockers}</span>
+              ) : null}
+              {item.id === "smart-fix" && smartFixCount > 0 ? (
+                <span className="nav-count">{smartFixCount}</span>
               ) : null}
             </button>
           ))}
