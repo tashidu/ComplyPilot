@@ -55,10 +55,12 @@ export function Modal({
   open,
   onClose,
   auditCount,
+  receiptNumber,
 }: {
   open: boolean;
   onClose: () => void;
   auditCount: number;
+  receiptNumber: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -89,7 +91,7 @@ export function Modal({
           controlled mock submission.
         </p>
         <div className="receipt">
-          Receipt: CP-DEMO-2026-1042
+          Receipt: {receiptNumber || "CP-DEMO-PENDING"}
           <br />
           Status: ACCEPTED (MOCK)
           <br />

@@ -171,6 +171,8 @@ export type ScheduleReconciliation = {
 export type SmartFixAction = {
   field: string;
   label: string;
+  /** Path in the schema-validated extraction that this action corrects. */
+  extractionPath: string;
   observedValue: string | number | boolean | null;
   suggestedValue: string | number | boolean | null;
   decision: "AI_DRAFT" | "NEEDS_HUMAN";

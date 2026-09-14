@@ -12,7 +12,7 @@ type Props = {
   files: number;
   onAddFiles: (files: FileList | null) => void;
   onToggleResolve: (id: string) => void;
-  onApplyRescueActions: (ids: string[]) => Promise<void>;
+  onQueueRescueActions: (ids: string[]) => Promise<void>;
   onOpenEvidence: (id: string) => void;
   onExportPassport: () => void;
   onOpenSmartFix: () => void;
@@ -24,7 +24,7 @@ export function OverviewView({
   files,
   onAddFiles,
   onToggleResolve,
-  onApplyRescueActions,
+  onQueueRescueActions,
   onOpenEvidence,
   onExportPassport,
   onOpenSmartFix,
@@ -68,7 +68,7 @@ export function OverviewView({
         <h2>Refund Rescue Simulator</h2>
         <span className="subtle">Actual vs. selected what-if</span>
       </div>
-      <RescueSimulator result={result} onOpenEvidence={onOpenEvidence} onApplySelected={onApplyRescueActions} />
+      <RescueSimulator result={result} onOpenEvidence={onOpenEvidence} onQueueSelected={onQueueRescueActions} />
 
       <div className="section-head">
         <h2>Live VAT Schedule reconciliation</h2>
@@ -205,7 +205,7 @@ export function OverviewView({
                   disabled={inactive}
                   onClick={() => onToggleResolve(finding.id)}
                 >
-                  {resolved ? "Undo" : "Resolve"}
+                  {resolved ? "View completed" : finding.id === "invoice" ? "Open Smart Fix" : "Open task"}
                 </button>
               </div>
             </article>

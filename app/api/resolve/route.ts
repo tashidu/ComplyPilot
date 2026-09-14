@@ -12,6 +12,7 @@ const ResolveRequestSchema = z.object({
   resolvedBlockers: ResolvedBlockersSchema.optional().default([]),
   futureRules: z.boolean().optional().default(false),
   runId: z.string().min(1).max(120).nullable().optional(),
+  evidenceNote: z.string().trim().max(800).optional().default(""),
 });
 
 export async function POST(req: Request) {
@@ -25,9 +26,22 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const { findingId, resolvedBlockers, futureRules, runId } = parsed.data;
+    const { findingId, resolvedBlockers, futureRules, runId, evidenceNote } = parsed.data;
 
     const currentResolved = new Set<string>(resolvedBlockers);
+
+    if (!currentResolved.has(findingId) && findingId === "invoice") {
+      return NextResponse.json(
+        { error: "Invoice findings must be corrected and revalidated through Smart Fix." },
+        { status: 409 },
+      );
+    }
+    if (!currentResolved.has(findingId) && evidenceNote.length < 8) {
+      return NextResponse.json(
+        { error: "Add an evidence note of at least eight characters before resolving this finding." },
+        { status: 400 },
+      );
+    }
 
     // Toggle the findingId
     if (currentResolved.has(findingId)) {
@@ -51,7 +65,9 @@ export async function POST(req: Request) {
         time: new Date().toLocaleTimeString("en-GB", { hour12: false }),
         actor: "human",
         title: `Finding ${findingId} ${action}`,
-        detail: `The state of the finding was toggled to ${action}. Readiness recalculated to ${result.score.total}/100.`,
+        detail: action === "resolved"
+          ? `A human evidence note was recorded and the finding was resolved. Readiness recalculated to ${result.score.total}/100.`
+          : `The finding was reopened. Readiness recalculated to ${result.score.total}/100.`,
       }
     ];
 

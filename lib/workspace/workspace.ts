@@ -1,0 +1,410 @@
+import { randomUUID } from "node:crypto";
+import type { AnalyzeResult, DataMode, FindingSeverity } from "../types";
+
+export type FilingFrequency = "MONTHLY" | "QUARTERLY";
+export type VatRegistrationStatus = "ACTIVE" | "PENDING" | "NOT_SET";
+export type RamisConnectionStatus = "SIMULATOR" | "NOT_CONNECTED" | "ONBOARDING" | "LIVE_APPROVED";
+export type VatPeriodStatus =
+  | "COLLECTING"
+  | "NEEDS_REVIEW"
+  | "READY_TO_CLOSE"
+  | "APPROVED"
+  | "SUBMITTED";
+export type InboxItemStatus = "PROCESSED" | "MATCHED" | "NEEDS_REVIEW" | "FAILED";
+export type InboxDocumentType = "INVOICE" | "VAT_SCHEDULE" | "CREDIT_DEBIT_NOTE" | "SUPPORTING_EVIDENCE";
+export type WorkspaceTaskStatus = "OPEN" | "WAITING_EVIDENCE" | "READY_FOR_REVIEW" | "COMPLETED";
+
+export type BusinessProfile = {
+  id: string;
+  legalName: string;
+  displayName: string;
+  tin: string;
+  vatRegistrationStatus: VatRegistrationStatus;
+  filingFrequency: FilingFrequency;
+  industry: string;
+  address: string;
+  financeEmail: string;
+  authorisedReviewer: string;
+  ramisConnection: RamisConnectionStatus;
+  isSynthetic: boolean;
+  activePeriodId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VatPeriodRecord = {
+  id: string;
+  profileId: string;
+  label: string;
+  frequency: FilingFrequency;
+  startDate: string;
+  endDate: string;
+  paymentDueDate: string;
+  returnDueDate: string;
+  status: VatPeriodStatus;
+  runId: string | null;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  lastActivityAt: string;
+};
+
+export type InvoiceInboxItem = {
+  id: string;
+  periodId: string;
+  runId: string;
+  fileName: string;
+  reference: string;
+  supplierName: string | null;
+  documentType: InboxDocumentType;
+  status: InboxItemStatus;
+  dataMode: DataMode;
+  vatAmountLkr: number | null;
+  summary: string;
+  uploadedAt: string;
+};
+
+export type WorkspaceTask = {
+  id: string;
+  periodId: string;
+  findingId: string;
+  title: string;
+  description: string;
+  severity: FindingSeverity;
+  status: WorkspaceTaskStatus;
+  amountLkrM: number;
+  assignedTo: string;
+  evidenceNote: string;
+  selectedForAction: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SubmissionHistoryItem = {
+  id: string;
+  periodId: string;
+  acknowledgement: string;
+  submissionType: "RAMIS_SIMULATOR" | "LIVE_RAMIS";
+  status: "ACCEPTED_MOCK" | "ACCEPTED" | "FAILED";
+  readinessScore: number;
+  submittedBy: string;
+  submittedAt: string;
+  note: string;
+};
+
+export type BusinessWorkspace = {
+  version: 1;
+  activeProfileId: string;
+  profiles: BusinessProfile[];
+  periods: VatPeriodRecord[];
+  inbox: InvoiceInboxItem[];
+  tasks: WorkspaceTask[];
+  submissions: SubmissionHistoryItem[];
+  updatedAt: string;
+};
+
+export function createId(prefix: string): string {
+  return `${prefix}-${randomUUID().replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+}
+
+function iso(value: string): string {
+  return new Date(value).toISOString();
+}
+
+export function createDefaultWorkspace(): BusinessWorkspace {
+  const now = new Date().toISOString();
+  const profileId = "BIZ-SERENDIB-DEMO";
+  const activePeriodId = "PERIOD-2026-10-DEMO";
+  return {
+    version: 1,
+    activeProfileId: profileId,
+    profiles: [
+      {
+        id: profileId,
+        legalName: "Serendib Export Works (Pvt) Ltd",
+        displayName: "Serendib Export Works",
+        tin: "134857291",
+        vatRegistrationStatus: "ACTIVE",
+        filingFrequency: "MONTHLY",
+        industry: "Export manufacturing",
+        address: "Colombo, Sri Lanka",
+        financeEmail: "finance@serendib.demo",
+        authorisedReviewer: "N. Perera",
+        ramisConnection: "SIMULATOR",
+        isSynthetic: true,
+        activePeriodId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ],
+    periods: [
+      {
+        id: "PERIOD-2026-08-DEMO",
+        profileId,
+        label: "August 2026",
+        frequency: "MONTHLY",
+        startDate: "2026-08-01",
+        endDate: "2026-08-31",
+        paymentDueDate: "2026-09-20",
+        returnDueDate: "2026-09-30",
+        status: "SUBMITTED",
+        runId: null,
+        approvedBy: "N. Perera",
+        approvedAt: iso("2026-09-28T09:15:00+05:30"),
+        lastActivityAt: iso("2026-09-28T09:17:00+05:30"),
+      },
+      {
+        id: "PERIOD-2026-09-DEMO",
+        profileId,
+        label: "September 2026",
+        frequency: "MONTHLY",
+        startDate: "2026-09-01",
+        endDate: "2026-09-30",
+        paymentDueDate: "2026-10-20",
+        returnDueDate: "2026-10-31",
+        status: "SUBMITTED",
+        runId: null,
+        approvedBy: "N. Perera",
+        approvedAt: iso("2026-10-27T10:20:00+05:30"),
+        lastActivityAt: iso("2026-10-27T10:23:00+05:30"),
+      },
+      {
+        id: activePeriodId,
+        profileId,
+        label: "October 2026",
+        frequency: "MONTHLY",
+        startDate: "2026-10-01",
+        endDate: "2026-10-31",
+        paymentDueDate: "2026-11-20",
+        returnDueDate: "2026-11-30",
+        status: "COLLECTING",
+        runId: null,
+        approvedBy: null,
+        approvedAt: null,
+        lastActivityAt: now,
+      },
+    ],
+    inbox: [
+      {
+        id: "DOC-DEMO-1030",
+        periodId: activePeriodId,
+        runId: "DEMO-SEED",
+        fileName: "invoice-26OCT_BR03_1030.jpg",
+        reference: "26OCT_BR03_1030",
+        supplierName: "Ceylon Industrial Supplies",
+        documentType: "INVOICE",
+        status: "NEEDS_REVIEW",
+        dataMode: "SYNTHETIC_DEMO",
+        vatAmountLkr: 800_000,
+        summary: "October 2026 synthetic invoice; Smart Fix review required.",
+        uploadedAt: now,
+      },
+      {
+        id: "DOC-DEMO-1044",
+        periodId: activePeriodId,
+        runId: "DEMO-SEED",
+        fileName: "invoice-26OCT_EXP01_1044.pdf",
+        reference: "26OCT_EXP01_1044",
+        supplierName: "Oceanic Packaging Lanka",
+        documentType: "INVOICE",
+        status: "MATCHED",
+        dataMode: "SYNTHETIC_DEMO",
+        vatAmountLkr: 425_000,
+        summary: "Synthetic invoice matched to the purchase ledger.",
+        uploadedAt: now,
+      },
+      {
+        id: "DOC-DEMO-SCHEDULE",
+        periodId: activePeriodId,
+        runId: "DEMO-SEED",
+        fileName: "vat-schedule-02-october-2026.csv",
+        reference: "Schedule 02",
+        supplierName: null,
+        documentType: "VAT_SCHEDULE",
+        status: "PROCESSED",
+        dataMode: "SYNTHETIC_DEMO",
+        vatAmountLkr: null,
+        summary: "Synthetic Schedule 02 evidence prepared for reconciliation.",
+        uploadedAt: now,
+      },
+    ],
+    tasks: [],
+    submissions: [
+      {
+        id: "SUB-DEMO-AUG-2026",
+        periodId: "PERIOD-2026-08-DEMO",
+        acknowledgement: "CP-DEMO-2026-0829",
+        submissionType: "RAMIS_SIMULATOR",
+        status: "ACCEPTED_MOCK",
+        readinessScore: 91,
+        submittedBy: "N. Perera",
+        submittedAt: iso("2026-09-28T09:17:00+05:30"),
+        note: "Synthetic history item; no live IRD action occurred.",
+      },
+      {
+        id: "SUB-DEMO-SEP-2026",
+        periodId: "PERIOD-2026-09-DEMO",
+        acknowledgement: "CP-DEMO-2026-0938",
+        submissionType: "RAMIS_SIMULATOR",
+        status: "ACCEPTED_MOCK",
+        readinessScore: 94,
+        submittedBy: "N. Perera",
+        submittedAt: iso("2026-10-27T10:23:00+05:30"),
+        note: "Synthetic history item; no live IRD action occurred.",
+      },
+    ],
+    updatedAt: now,
+  };
+}
+
+export function activeProfile(workspace: BusinessWorkspace): BusinessProfile {
+  return workspace.profiles.find((profile) => profile.id === workspace.activeProfileId) ?? workspace.profiles[0];
+}
+
+export function activePeriod(workspace: BusinessWorkspace): VatPeriodRecord {
+  const profile = activeProfile(workspace);
+  return (
+    workspace.periods.find((period) => period.id === profile.activePeriodId && period.profileId === profile.id) ??
+    workspace.periods.find((period) => period.profileId === profile.id)!
+  );
+}
+
+export function isProfileComplete(profile: BusinessProfile): boolean {
+  return Boolean(
+    profile.legalName.trim() &&
+      /^\d{9}$/.test(profile.tin.trim()) &&
+      profile.vatRegistrationStatus === "ACTIVE" &&
+      profile.filingFrequency &&
+      profile.authorisedReviewer.trim(),
+  );
+}
+
+function inboxStatus(analysis: AnalyzeResult, documentType: InboxDocumentType): InboxItemStatus {
+  if (!analysis.invoice && documentType === "INVOICE") return "FAILED";
+  if (documentType === "VAT_SCHEDULE" && analysis.scheduleReconciliation.status === "MATCHED") return "MATCHED";
+  if (analysis.findings.some((finding) => finding.status === "open")) return "NEEDS_REVIEW";
+  return "PROCESSED";
+}
+
+function fieldValue(analysis: AnalyzeResult, key: string): string | number | null {
+  const field = analysis.invoice?.[key];
+  return field && typeof field === "object" && "value" in field ? field.value : null;
+}
+
+export function syncAnalysisToWorkspace(
+  workspace: BusinessWorkspace,
+  analysis: AnalyzeResult,
+  options: {
+    periodId?: string;
+    fileName?: string;
+    documentType?: InboxDocumentType;
+  } = {},
+): BusinessWorkspace {
+  const now = new Date().toISOString();
+  const periodId = options.periodId ?? activePeriod(workspace).id;
+  const period = workspace.periods.find((candidate) => candidate.id === periodId);
+  if (!period) throw new Error("The selected VAT period does not exist.");
+
+  let inbox = workspace.inbox;
+  if (options.fileName && options.documentType) {
+    const invoiceNumber = fieldValue(analysis, "invoiceNumber");
+    const supplierName = fieldValue(analysis, "sellerName");
+    const vatAmount = fieldValue(analysis, "vatTotal");
+    const existing = inbox.find(
+      (item) => item.periodId === periodId && item.fileName === options.fileName && item.runId === analysis.runId,
+    );
+    const item: InvoiceInboxItem = {
+      id: existing?.id ?? createId("DOC"),
+      periodId,
+      runId: analysis.runId,
+      fileName: options.fileName,
+      reference: String(invoiceNumber ?? options.fileName),
+      supplierName: supplierName === null ? null : String(supplierName),
+      documentType: options.documentType,
+      status: inboxStatus(analysis, options.documentType),
+      dataMode: analysis.dataMode,
+      vatAmountLkr: typeof vatAmount === "number" ? vatAmount : vatAmount ? Number(vatAmount) || null : null,
+      summary:
+        options.documentType === "VAT_SCHEDULE"
+          ? `Schedule reconciliation status: ${analysis.scheduleReconciliation.status}.`
+          : analysis.invoice
+            ? `${analysis.findings.filter((finding) => finding.status === "open").length} open review task(s) after extraction.`
+            : "The document could not be extracted; human review is required.",
+      uploadedAt: existing?.uploadedAt ?? now,
+    };
+    inbox = existing
+      ? inbox.map((candidate) => (candidate.id === existing.id ? item : candidate))
+      : [item, ...inbox];
+  }
+
+  const findingIds = new Set(analysis.findings.filter((finding) => finding.status !== "inactive").map((finding) => finding.id));
+  const existingPeriodTasks = workspace.tasks.filter((task) => task.periodId === periodId);
+  const untouchedTasks = workspace.tasks.filter((task) => task.periodId !== periodId);
+  const tasks = analysis.findings
+    .filter((finding) => finding.status !== "inactive")
+    .map<WorkspaceTask>((finding) => {
+      const existing = existingPeriodTasks.find((task) => task.findingId === finding.id);
+      return {
+        id: existing?.id ?? createId("TASK"),
+        periodId,
+        findingId: finding.id,
+        title: finding.title,
+        description: finding.graph.at(-1)?.detail ?? finding.description,
+        severity: finding.severity,
+        status:
+          finding.status === "resolved"
+            ? "COMPLETED"
+            : existing?.status === "WAITING_EVIDENCE" || existing?.status === "READY_FOR_REVIEW"
+              ? existing.status
+              : "OPEN",
+        amountLkrM: finding.amountLkrM,
+        assignedTo: existing?.assignedTo ?? "",
+        evidenceNote: existing?.evidenceNote ?? "",
+        selectedForAction: existing?.selectedForAction ?? false,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      };
+    });
+
+  for (const existing of existingPeriodTasks) {
+    if (!findingIds.has(existing.findingId)) {
+      tasks.push({ ...existing, status: "COMPLETED", selectedForAction: false, updatedAt: now });
+    }
+  }
+
+  const hasOpenTasks = tasks.some((task) => task.status !== "COMPLETED");
+  const hasDocuments = inbox.some((item) => item.periodId === periodId);
+  const nextStatus: VatPeriodStatus =
+    period.status === "SUBMITTED" || period.status === "APPROVED"
+      ? period.status
+      : hasOpenTasks
+        ? "NEEDS_REVIEW"
+        : hasDocuments
+          ? "READY_TO_CLOSE"
+          : "COLLECTING";
+
+  return {
+    ...workspace,
+    periods: workspace.periods.map((candidate) =>
+      candidate.id === periodId
+        ? { ...candidate, runId: analysis.runId, status: nextStatus, lastActivityAt: now }
+        : candidate,
+    ),
+    inbox,
+    tasks: [...untouchedTasks, ...tasks],
+    updatedAt: now,
+  };
+}
+
+export function periodMetrics(workspace: BusinessWorkspace, periodId: string) {
+  const inbox = workspace.inbox.filter((item) => item.periodId === periodId);
+  const tasks = workspace.tasks.filter((task) => task.periodId === periodId);
+  return {
+    documentCount: inbox.length,
+    matchedCount: inbox.filter((item) => item.status === "MATCHED").length,
+    openTaskCount: tasks.filter((task) => task.status !== "COMPLETED").length,
+    completedTaskCount: tasks.filter((task) => task.status === "COMPLETED").length,
+    vatUnderReviewLkr: tasks
+      .filter((task) => task.status !== "COMPLETED")
+      .reduce((sum, task) => sum + task.amountLkrM * 1_000_000, 0),
+  };
+}

@@ -4,7 +4,7 @@ import { recallRun, rememberRun } from "@/lib/runs/run-store";
 import { parseResolvedBlockers } from "@/lib/runs/resolved-blockers";
 import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
-import type { VatScheduleEvidence } from "@/lib/types";
+import type { DataMode, VatScheduleEvidence } from "@/lib/types";
 import { SUPPORTED_IMAGE_TYPES } from "@/lib/ai/qwen-client";
 
 export const runtime = "nodejs";
@@ -67,6 +67,15 @@ export async function POST(req: Request) {
     }
 
     const futureRules = formData.get("futureRules") === "true";
+    const rawDataMode = formData.get("dataMode");
+    if (
+      rawDataMode !== null &&
+      rawDataMode !== "SYNTHETIC_DEMO" &&
+      rawDataMode !== "USER_PROVIDED"
+    ) {
+      return NextResponse.json({ error: "Unknown data mode." }, { status: 400 });
+    }
+    const requestedDataMode = (rawDataMode as DataMode | null) ?? undefined;
     // Malformed or unknown ids are a client error, not a 500. Validating the
     // list also stops an arbitrary id being marked resolved.
     const resolvedBlockers = parseResolvedBlockers(formData.get("resolvedBlockers"));
@@ -86,17 +95,23 @@ export async function POST(req: Request) {
       resolvedBlockers,
       previous,
       scheduleUpload,
+      requestedDataMode,
     );
     await rememberRun(result, session.id);
 
     // Audit events must describe what actually happened, never what was intended.
-    if (!image && !scheduleUpload && resolvedBlockers.length === 0) {
+    if (
+      result.dataMode === "SYNTHETIC_DEMO" &&
+      !image &&
+      !scheduleUpload &&
+      resolvedBlockers.length === 0
+    ) {
       result.auditEvents = [
         {
           time: now(),
           actor: "agent",
           title: "Pre-flight workflow started",
-          detail: "13 synthetic evidence files routed to three specialist agents.",
+          detail: "Synthetic evidence routed through the seven-stage compliance workflow.",
         },
         {
           time: now(),

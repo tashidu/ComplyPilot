@@ -84,6 +84,7 @@ export function createSmartFixPlan(
     return {
       field: issue.key,
       label: issue.label,
+      extractionPath: issue.extractionPath,
       observedValue: issue.value,
       suggestedValue: proposal.value,
       decision: proposal.decision,

@@ -9,11 +9,11 @@ type Preview = { score: Score; claimValueUnderReviewLkr: number };
 export function RescueSimulator({
   result,
   onOpenEvidence,
-  onApplySelected,
+  onQueueSelected,
 }: {
   result: AnalyzeResult;
   onOpenEvidence: (id: string) => void;
-  onApplySelected: (ids: string[]) => Promise<void>;
+  onQueueSelected: (ids: string[]) => Promise<void>;
 }) {
   const actions = result.rescuePlan.actions;
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -80,7 +80,7 @@ export function RescueSimulator({
       <div className="card-head">
         <div>
           <h2>Refund Rescue Simulator</h2>
-          <p>Select rescue actions to preview their combined effect. Nothing changes until you apply them.</p>
+          <p>Select rescue actions to preview their combined effect, then save them as owned tasks for evidence-backed completion.</p>
         </div>
         <span className="tag brand">What-if · not the IRD score</span>
       </div>
@@ -156,17 +156,17 @@ export function RescueSimulator({
                 const ids = Array.from(selected);
                 setApplying(true);
                 try {
-                  await onApplySelected(ids);
+                  await onQueueSelected(ids);
                 } finally {
                   setApplying(false);
                 }
               }}
             >
               {applying
-                ? "Applying…"
-                : `Apply ${selected.size || ""} selected correction${selected.size === 1 ? "" : "s"}`}
+                ? "Saving…"
+                : `Save ${selected.size || ""} selected action${selected.size === 1 ? "" : "s"} to Tasks`}
             </button>
-            <span className="subtle">{result.rescuePlan.disclaimer}</span>
+            <span className="subtle">The preview does not resolve findings. A human must add evidence and complete each saved task. {result.rescuePlan.disclaimer}</span>
           </div>
         </>
       )}

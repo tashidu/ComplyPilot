@@ -82,7 +82,7 @@ than being silently mislabelled.
 
 ### Grounded Data Copilot
 
-The floating **Ask your data** chatbox answers from the latest in-memory analysis
+The floating **Ask your data** chatbox answers from the latest session-isolated analysis
 run: readiness score, findings, structured invoice extraction, VAT Schedule
 reconciliation and the bundled official-source summaries. It never sends the raw
 invoice image to the chat endpoint. With `DASHSCOPE_API_KEY` configured it uses
@@ -204,13 +204,18 @@ reads `LIVE QWEN` after uploading an invoice image.
 
 - **Explainable readiness score** - deterministic 100-point calculation with a visible component breakdown.
 - **Claim Value Under Review** - shows the input VAT value connected to unresolved evidence without presenting it as a confirmed loss.
-- **Three-agent workflow** - Document Compliance, Supplier & Reconciliation, and Refund Readiness.
+- **Seven-stage agent workflow** - document extraction, temporal rules, Smart Fix, reconciliation, rescue planning, human approval and controlled submission.
+- **Persistent business profiles** - stores reusable TIN, VAT status, filing frequency, finance contact and authorised reviewer details per browser session.
+- **Monthly and quarterly period records** - keeps each taxable period, due dates, active run and closing state separate.
+- **Invoice inbox and saved tasks** - accepts evidence gradually, turns findings into owned work and requires evidence notes before completion.
+- **Period-closing workflow** - blocks filing until profile, document, task and latest-analysis gates pass, then records the human reviewer.
+- **Submission history** - keeps simulator acknowledgements and distinguishes them from a future authorised live RAMIS integration.
 - **Regulatory Time Machine** - compares the evidence before and after the revised invoice format becomes effective on 1 October 2026.
 - **Evidence Graph** - traces a finding from its source document through the applied rule to the required human action.
 - **Live VAT Schedule CSV reconciliation** - parses a user upload and compares invoice number, supplier TIN, net value, VAT and gross value without letting an LLM alter the figures.
 - **Refund Evidence Passport** - exports the evidence, findings, rule sources, workflow trace and audit history with a SHA-256 content digest.
 - **Grounded Data Copilot** - answers questions about the current run, invoice extraction, schedule match and bundled official sources, with live-Qwen/fallback disclosure.
-- **What-if simulator** - resolves blockers and updates the score, evidence value and readiness status immediately.
+- **What-if simulator** - previews score and evidence-value changes, then saves selected actions as tasks without auto-resolving findings.
 - **45-day Clock Twin** - compares a normal statutory scenario with a simulated Notice 2 correction scenario.
 - **Human-approved mock filing** - keeps the authorised user in control and never accesses the live IRD portal.
 - **Replayable audit trail** - records agent findings, human fixes, rule-profile changes and mock filing actions.
@@ -244,7 +249,7 @@ aliases. It then locates the extracted invoice and displays every matched field
 or variance. Download [`public/demo/vat-schedule-demo.csv`](public/demo/vat-schedule-demo.csv)
 for the expected minimal format.
 
-The parsed schedule is held only in the demo's in-memory run store. Exporting a
+The parsed schedule and workspace are stored in Postgres under a session boundary. Exporting a
 Refund Evidence Passport creates a local JSON evidence manifest with a SHA-256
 content digest. The digest is tamper-evident metadata, not a digital signature
 or an IRD acknowledgement.

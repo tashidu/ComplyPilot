@@ -8,6 +8,9 @@ export function FilingView({
   result,
   approved,
   submitted,
+  periodApproved,
+  periodLabel,
+  documentCount,
   onApprovalChange,
   onSubmit,
   onAgentEvent,
@@ -15,12 +18,16 @@ export function FilingView({
   result: AnalyzeResult;
   approved: boolean;
   submitted: boolean;
+  periodApproved: boolean;
+  periodLabel: string;
+  documentCount: number;
   onApprovalChange: (value: boolean) => void;
   onSubmit: () => void;
   onAgentEvent?: (title: string, detail: string) => void;
 }) {
   const openBlockers = result.findings.filter(f => f.status === "open");
-  const ready = openBlockers.length === 0;
+  const blockersReady = openBlockers.length === 0;
+  const ready = blockersReady && periodApproved;
   const score = result.score.total;
 
   const isResolved = (id: string) => result.findings.find(f => f.id === id)?.status === "resolved";
@@ -43,7 +50,7 @@ export function FilingView({
           <div className="card-head">
             <div>
               <h2>Submission readiness</h2>
-              <p>All gates must pass before the mock action is enabled.</p>
+              <p>{periodLabel} must be closed by an authorised reviewer before the mock action is enabled.</p>
             </div>
             <strong>{score}/100</strong>
           </div>
@@ -53,15 +60,22 @@ export function FilingView({
               <div className="check-mark">✓</div>
               <div>
                 <strong>Documents extracted</strong>
-                <span>10 invoices with source-image trace.</span>
+                <span>{documentCount} period record{documentCount === 1 ? "" : "s"} saved with source trace.</span>
               </div>
             </div>
             <div className="check-row">
-              <div className={`check-mark${ready ? "" : " wait"}`}>{ready ? "✓" : "!"}</div>
+              <div className={`check-mark${periodApproved ? "" : " wait"}`}>{periodApproved ? "✓" : "!"}</div>
+              <div>
+                <strong>Period-closing approval</strong>
+                <span>{periodApproved ? `${periodLabel} was approved by an authorised reviewer.` : "Complete the Period-closing workflow first."}</span>
+              </div>
+            </div>
+            <div className="check-row">
+              <div className={`check-mark${blockersReady ? "" : " wait"}`}>{blockersReady ? "✓" : "!"}</div>
               <div>
                 <strong>Evidence blockers resolved</strong>
                 <span>
-                  {ready
+                  {blockersReady
                     ? "All current blockers are resolved."
                     : `${openBlockers.length} blocker${openBlockers.length === 1 ? "" : "s"} still require action.`}
                 </span>
@@ -118,8 +132,8 @@ export function FilingView({
           <div className="table-wrap">
             <table>
               <tbody>
-                <PackageRow name="VAT return package" note="October 2026" status="Ready" ok />
-                <PackageRow name="Input schedule evidence" note="10 invoice links" status="Attached" ok />
+                <PackageRow name="VAT return package" note={periodLabel} status={periodApproved ? "Approved" : "Not closed"} ok={periodApproved} />
+                <PackageRow name="Input schedule evidence" note={`${documentCount} period records`} status="Attached" ok />
                 <PackageRow
                   name="Export reconciliation note"
                   note="Drafted by agent"

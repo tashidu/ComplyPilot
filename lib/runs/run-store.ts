@@ -26,7 +26,9 @@ export type StoredRun = {
   createdAt: number;
 };
 
-const TTL_INTERVAL = "30 minutes";
+// Period workspaces span months. Keep their structured analysis long enough to
+// reopen a prior filing cycle while still bounding abandoned prototype data.
+const TTL_INTERVAL = "400 days";
 
 let schemaReady: Promise<void> | null = null;
 function ensureSchema(): Promise<void> {
@@ -41,7 +43,11 @@ function ensureSchema(): Promise<void> {
        );
        CREATE INDEX IF NOT EXISTS runs_owner_session_id_idx ON runs (owner_session_id);`,
     )
-    .then(() => undefined);
+    .then(() => undefined)
+    .catch((error) => {
+      schemaReady = null;
+      throw error;
+    });
   return schemaReady;
 }
 
