@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
+import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
 import type { VatScheduleEvidence } from "@/lib/types";
 import { SUPPORTED_IMAGE_TYPES } from "@/lib/ai/qwen-client";
+
+export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
@@ -13,6 +16,7 @@ function now() {
 }
 
 export async function POST(req: Request) {
+  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
   try {
     const formData = await req.formData();
 
@@ -54,7 +58,7 @@ export async function POST(req: Request) {
 
     // Continue an existing run when no new file is supplied, so a live
     // extraction is not replaced by fixtures on a rule-profile change.
-    const previous = recallRun(formData.get("runId") as string | null);
+    const previous = await recallRun(formData.get("runId") as string | null, ownerSessionId);
     const result = await runOrchestrator(
       image,
       futureRules,
@@ -62,7 +66,7 @@ export async function POST(req: Request) {
       previous,
       scheduleUpload,
     );
-    rememberRun(result);
+    await rememberRun(result, ownerSessionId);
 
     // Audit events must describe what actually happened, never what was intended.
     if (!image && !scheduleUpload && resolvedBlockers.length === 0) {
@@ -107,7 +111,7 @@ export async function POST(req: Request) {
       ];
     }
 
-    return NextResponse.json(result);
+    return withSessionCookie(NextResponse.json(result), ownerSessionId, isNew);
   } catch (error) {
     console.error("Error in /api/analyze", error);
     if (error instanceof ScheduleParseError) {

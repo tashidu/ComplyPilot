@@ -1,5 +1,18 @@
+import { randomUUID } from "node:crypto";
 import { chromium, type Browser, type Page } from "playwright";
 import OpenAI from "openai";
+
+/**
+ * A deliberately written, safe-to-show message with its own HTTP status.
+ * Anything thrown that is NOT this type is treated as an unexpected internal
+ * exception by the route - logged server-side, never forwarded to the client,
+ * since a raw Playwright/filesystem error message can contain local paths.
+ */
+export class GuiAgentClientError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+  }
+}
 
 /**
  * GUI filing agent.
@@ -43,6 +56,7 @@ export type SessionStatus = "awaiting_human" | "completed" | "failed";
 
 export type AgentSession = {
   id: string;
+  ownerSessionId: string;
   browser: Browser;
   page: Page;
   data: FilingData;
@@ -72,6 +86,10 @@ type Observation = {
 
 const MAX_STEPS = 14;
 const SESSION_TTL_MS = 15 * 60 * 1000;
+// Each session holds one Chromium process (~300MB+) open for its whole
+// lifetime. This is a hard cap on a public host so an unauthenticated burst
+// of POST /api/file calls cannot OOM the container.
+const MAX_CONCURRENT_SESSIONS = 3;
 
 /** Survives dev hot reloads so a paused session is still there after an edit. */
 const store = globalThis as unknown as { __guiSessions?: Map<string, AgentSession> };
@@ -80,6 +98,20 @@ const sessions = store.__guiSessions;
 
 export function getSession(id: string): AgentSession | undefined {
   return sessions.get(id);
+}
+
+/**
+ * Sessions keep this status for as long as their browser is open, whether
+ * genuinely paused for an OTP or still mid-run inside startFiling - the field
+ * is set once at creation and only changes when the browser closes. Counting
+ * it is therefore an accurate proxy for "Chromium processes currently alive".
+ */
+function countOpenBrowsers(): number {
+  let count = 0;
+  for (const session of sessions.values()) {
+    if (session.status === "awaiting_human") count += 1;
+  }
+  return count;
 }
 
 function now() {
@@ -344,8 +376,19 @@ async function runLoop(session: AgentSession): Promise<void> {
   session.error = `The agent stopped after ${MAX_STEPS} steps without reaching an acknowledgement.`;
 }
 
-export async function startFiling(portalUrl: string, data: FilingData): Promise<AgentSession> {
+export async function startFiling(
+  portalUrl: string,
+  data: FilingData,
+  ownerSessionId: string,
+): Promise<AgentSession> {
   await reapExpiredSessions();
+
+  if (countOpenBrowsers() >= MAX_CONCURRENT_SESSIONS) {
+    throw new GuiAgentClientError(
+      "The filing agent is at capacity right now. Wait for another session to finish and try again.",
+      429,
+    );
+  }
 
   let browser: Browser;
   try {
@@ -355,19 +398,21 @@ export async function startFiling(portalUrl: string, data: FilingData): Promise<
     });
   } catch (error) {
     // The most common setup failure by far: dependencies installed but the
-    // browser binary never downloaded, or downloaded for a different revision.
-    const detail = error instanceof Error ? error.message : String(error);
-    if (/executable doesn't exist|Failed to launch/i.test(detail)) {
-      throw new Error(
-        "Chromium is not installed for this Playwright version. Run: npx playwright install chromium (on a Linux server use --with-deps).",
-      );
-    }
-    throw error;
+    // browser binary never downloaded, or downloaded for a different
+    // revision. Log the raw error server-side; only this fixed, safe
+    // message - never error.message, which can contain filesystem paths -
+    // is shown to the client.
+    console.error("Chromium launch failed", error);
+    throw new GuiAgentClientError(
+      "Chromium is not installed for this Playwright version. Run: npx playwright install chromium (on a Linux server use --with-deps).",
+      503,
+    );
   }
   const page = await browser.newPage({ viewport: { width: 1120, height: 760 } });
 
   const session: AgentSession = {
-    id: `GUI-${Math.random().toString(36).slice(2, 9).toUpperCase()}`,
+    id: `GUI-${randomUUID().replace(/-/g, "").slice(0, 9).toUpperCase()}`,
+    ownerSessionId,
     browser,
     page,
     data,
@@ -398,11 +443,19 @@ export async function startFiling(portalUrl: string, data: FilingData): Promise<
 }
 
 /** Continues a paused session once the human has supplied the OTP. */
-export async function submitOtp(sessionId: string, code: string): Promise<AgentSession> {
+export async function submitOtp(
+  sessionId: string,
+  code: string,
+  ownerSessionId: string,
+): Promise<AgentSession> {
   const session = sessions.get(sessionId);
-  if (!session) throw new Error("That filing session has expired. Start the agent again.");
+  // Same message whether the id is unknown or owned by someone else, so a
+  // guessed id cannot be distinguished from an expired one.
+  if (!session || session.ownerSessionId !== ownerSessionId) {
+    throw new GuiAgentClientError("That filing session has expired. Start the agent again.", 404);
+  }
   if (session.status !== "awaiting_human") {
-    throw new Error("That filing session is not waiting for a one-time password.");
+    throw new GuiAgentClientError("That filing session is not waiting for a one-time password.", 409);
   }
 
   try {

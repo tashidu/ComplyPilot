@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { extractInvoiceData } from "../ai/qwen-client";
 import { analyzeDocument } from "../agents/document-agent";
 import { analyzeReconciliation } from "../agents/reconciliation-agent";
@@ -143,7 +144,7 @@ export async function runOrchestrator(
   }
 
   const runId =
-    reusablePrevious?.runId ?? `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    reusablePrevious?.runId ?? `RUN-${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
 
   // 1. Document Compliance Agent
   const docFinding = await timed(trace, "Document Compliance Agent", () =>

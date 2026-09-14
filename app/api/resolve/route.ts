@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
+import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
   try {
     const { findingId, resolvedBlockers, futureRules, runId } = await req.json();
 
@@ -23,8 +27,9 @@ export async function POST(req: Request) {
 
     // Re-run the deterministic checks against whatever this run extracted,
     // without making another AI call.
-    const result = await runOrchestrator(null, !!futureRules, nextResolved, recallRun(runId));
-    rememberRun(result);
+    const previous = await recallRun(runId, ownerSessionId);
+    const result = await runOrchestrator(null, !!futureRules, nextResolved, previous);
+    await rememberRun(result, ownerSessionId);
 
     // Prepare audit event
     const action = currentResolved.has(findingId) ? "resolved" : "reopened";
@@ -37,7 +42,7 @@ export async function POST(req: Request) {
       }
     ];
 
-    return NextResponse.json(result);
+    return withSessionCookie(NextResponse.json(result), ownerSessionId, isNew);
   } catch (error) {
     console.error("Error in /api/resolve", error);
     return NextResponse.json(

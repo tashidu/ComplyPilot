@@ -1,47 +1,29 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
 import {
   approveChange,
   getWatchState,
   rejectChange,
   resetWatch,
 } from "@/lib/agents/regulatory-watch";
+import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 
 export const runtime = "nodejs";
-
-const COOKIE = "cp_demo_session";
 
 /**
  * Each browser gets its own demo session, so two judges viewing the hosted
  * prototype at the same time do not share one pending rule change.
  */
-async function sessionId(): Promise<{ id: string; isNew: boolean }> {
-  const jar = await cookies();
-  const existing = jar.get(COOKIE)?.value;
-  if (existing) return { id: existing, isNew: false };
-  return { id: `S-${Math.random().toString(36).slice(2, 10)}`, isNew: true };
-}
-
 function withSession(body: unknown, id: string, isNew: boolean) {
-  const response = NextResponse.json(body);
-  if (isNew) {
-    response.cookies.set(COOKIE, id, {
-      httpOnly: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 8,
-    });
-  }
-  return response;
+  return withSessionCookie(NextResponse.json(body), id, isNew);
 }
 
 export async function GET() {
-  const { id, isNew } = await sessionId();
+  const { id, isNew } = await getOrCreateSessionId();
   return withSession({ simulated: true, state: getWatchState(id) }, id, isNew);
 }
 
 export async function POST(req: Request) {
-  const { id, isNew } = await sessionId();
+  const { id, isNew } = await getOrCreateSessionId();
   try {
     const body = await req.json().catch(() => ({}));
     const reviewer = String(body.reviewer ?? "").trim();

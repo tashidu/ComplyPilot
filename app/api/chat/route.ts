@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { governmentSources, refundRiskRules, vatInvoiceRulePack, vatRates, vatSchedules } from "@/lib/government-data";
 import { recallRun } from "@/lib/runs/run-store";
+import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 import type { AnalyzeResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -183,6 +184,7 @@ function fallbackAnswer(question: string, analysis: AnalyzeResult): string {
 }
 
 export async function POST(request: Request) {
+  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
   try {
     const parsed = ChatRequestSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -190,7 +192,7 @@ export async function POST(request: Request) {
     }
 
     const { runId, messages } = parsed.data;
-    const stored = recallRun(runId);
+    const stored = await recallRun(runId, ownerSessionId);
     if (!stored?.analysis) {
       return NextResponse.json({ error: "This analysis run expired. Refresh or reset the demo." }, { status: 404 });
     }
@@ -203,12 +205,16 @@ export async function POST(request: Request) {
     const apiKey = process.env.DASHSCOPE_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({
-        answer: fallbackAnswer(question, stored.analysis),
-        mode: "DEMO_FALLBACK",
-        fallbackReason: "DASHSCOPE_API_KEY is not set, so a deterministic grounded answer was used.",
-        sources,
-      });
+      return withSessionCookie(
+        NextResponse.json({
+          answer: fallbackAnswer(question, stored.analysis),
+          mode: "DEMO_FALLBACK",
+          fallbackReason: "DASHSCOPE_API_KEY is not set, so a deterministic grounded answer was used.",
+          sources,
+        }),
+        ownerSessionId,
+        isNew,
+      );
     }
 
     try {
@@ -230,20 +236,28 @@ export async function POST(request: Request) {
       const answer = response.choices[0]?.message?.content?.trim();
       if (!answer) throw new Error("empty response");
 
-      return NextResponse.json({
-        answer: answer.slice(0, 3_000),
-        mode: "LIVE_QWEN",
-        fallbackReason: null,
-        sources,
-      });
+      return withSessionCookie(
+        NextResponse.json({
+          answer: answer.slice(0, 3_000),
+          mode: "LIVE_QWEN",
+          fallbackReason: null,
+          sources,
+        }),
+        ownerSessionId,
+        isNew,
+      );
     } catch (error) {
       console.error("Qwen chat failed; using grounded fallback", error);
-      return NextResponse.json({
-        answer: fallbackAnswer(question, stored.analysis),
-        mode: "DEMO_FALLBACK",
-        fallbackReason: "Model Studio was unavailable, so a deterministic grounded answer was used.",
-        sources,
-      });
+      return withSessionCookie(
+        NextResponse.json({
+          answer: fallbackAnswer(question, stored.analysis),
+          mode: "DEMO_FALLBACK",
+          fallbackReason: "Model Studio was unavailable, so a deterministic grounded answer was used.",
+          sources,
+        }),
+        ownerSessionId,
+        isNew,
+      );
     }
   } catch (error) {
     console.error("Error in /api/chat", error);

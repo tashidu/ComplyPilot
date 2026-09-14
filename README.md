@@ -8,11 +8,12 @@ ComplyPilot helps an exporter find invoice, supplier, VAT-schedule and Customs-e
 
 ## Run the application
 
-The working application is a Next.js App Router project. Requires Node.js 20 or later.
+The working application is a Next.js App Router project. Requires Node.js 20 or later and a Postgres database (run state - extracted invoices, findings, reconciliation - is stored there, not in process memory, so it survives a restart and stays isolated per browser session).
 
 ```bash
 npm install
 cp .env.example .env.local   # then add your Model Studio key
+docker compose up db         # starts just Postgres, published on localhost:5433
 npm run dev                  # http://localhost:3000
 ```
 
@@ -54,6 +55,8 @@ Copy [`.env.example`](.env.example) to `.env.local`. Never commit a populated en
 | Variable | Purpose |
 | --- | --- |
 | `APP_PORT` | Host port exposed by Docker Compose; defaults to `3000`. |
+| `DATABASE_URL` | Postgres connection string for run state. Required; no in-memory fallback. |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT` | Only used by the `db` Compose service; `POSTGRES_PORT` defaults to `5433` so it never fights another project's Postgres for the default port. |
 | `DASHSCOPE_API_KEY` | Model Studio API key. Read server-side only. |
 | `DASHSCOPE_BASE_URL` | OpenAI-compatible endpoint. Differs by region. |
 | `QWEN_MODEL` | Vision-language model id used for invoice extraction. |
