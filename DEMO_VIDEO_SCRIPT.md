@@ -3,9 +3,9 @@
 This script matches the exact UI and workflow we built for the Alibaba Cloud AI Buildathon submission. Follow this click-by-click to record a clean, 3-minute demonstration.
 
 ## Key Features Demonstrated
-1. **Zero-Error VAT Document Processing**: Automated extraction of invoice data using Alibaba Cloud Qwen-VL-Plus.
+1. **Schema-Validated Document Extraction**: Invoice fields read by Alibaba Cloud Qwen-VL-Plus, validated with Zod and scored with per-field confidence before any rule runs.
 2. **Interactive AI Chatbox (Data Copilot)**: A grounded assistant that answers questions based on the specific run's data and official tax references.
-3. **RAMIS GUI Filing Agent Integration**: Automated, human-approved submission of the final package via a mock portal.
+3. **GUI Filing Agent (mock portal)**: Human-approved submission driven by Playwright against a bundled mock portal, stopping at OTP for a human. It does not connect to RAMIS.
 4. **Explainable AI Evidence Graph**: Visual tracing of how every document extraction maps to official tax rules.
 5. **Regulatory Time Machine**: Deterministic testing of evidence against both historical and future Gazetted rule profiles.
 6. **Pre-flight What-If Rescue**: Instant simulation of compliance score improvements when missing evidence is provided.
@@ -47,7 +47,7 @@ Frame only the relevant card during each scene. Move the pointer slowly, pause o
 
 **Do:** Let the score card fill the frame. Point out the score (`68/100`) and the priority blockers.
 
-> "Sri Lankan exporters often lose valuable time on their VAT refunds because simple documentary errors or customs mismatches are only discovered *after* filing. ComplyPilot RefundShield solves this by automatically processing VAT-related documents without errors. It features an interactive chatbox for instant data queries and integrates seamlessly with the IRD's RAMIS portal using an automated GUI filing agent. Right now, our readiness score is 68 out of 100, and we have unresolved blockers requiring attention to protect our 45-day refund clock."
+> "Sri Lankan exporters often lose valuable time on their VAT refunds because simple documentary errors or customs mismatches are only discovered *after* filing. ComplyPilot RefundShield catches those errors before filing. It reads the documents with Qwen, checks them against the Gazetted rule that applied on the invoice date, and prepares a human-approved evidence package. Right now, our readiness score is 68 out of 100, and we have unresolved blockers requiring attention to protect our 45-day refund clock."
 
 ---
 
@@ -63,10 +63,28 @@ Frame only the relevant card during each scene. Move the pointer slowly, pause o
 
 ---
 
-## 1:00-1:30 — Explainability (Evidence Graph)
+## 1:00-1:20 — Ask the current case (Data Copilot)
 
 **Do:**
-1. Scroll down to the **Priority blockers** section.
+1. Bottom right corner: click **Ask your data**.
+2. In the chat panel, click the suggested question **Why is this case blocked?**
+3. Wait for the answer to appear. Point at:
+   - The mode badge (`LIVE QWEN` or `DEMO FALLBACK`)
+   - One government-source chip (e.g., `GZ-2456-02`, `IRD-RBRS-CIRCULAR`)
+4. Close the panel.
+
+> "ComplyPilot's Data Copilot answers questions grounded in the current case: the readiness score, detected blockers, invoice extraction, VAT Schedule reconciliation and allow-listed government sources. Notice the mode label showing whether live Qwen or the deterministic fallback produced this answer."
+
+**Keep visible:** the `68/100` readiness card behind the chat, the case-specific blockers list in the answer, and the government source chips proving the sources are allow-listed, not model-generated.
+
+Do not ask an open-ended general tax question. The suggested question is designed to be short, case-specific, and auditable against the visible readiness card.
+
+---
+
+## 1:20-1:45 — Explainability (Evidence Graph)
+
+**Do:**
+1. Close the chat panel. Scroll down to the **Priority blockers** section.
 2. Click **Evidence** on the first open blocker (e.g., Supplier evidence or Invoice compliance).
 3. The view changes to the *Evidence graph*. Trace the nodes with your mouse.
 4. Click **Back to overview** when done.
@@ -75,40 +93,42 @@ Frame only the relevant card during each scene. Move the pointer slowly, pause o
 
 ---
 
-## 1:30-2:00 — Regulatory Time Machine
+## 1:45-2:05 — Regulatory Time Machine
 
 **Do:**
 1. In the sidebar, click **Rules & time machine**.
 2. Under "Choose the applicable rule profile", toggle between **Before 1 Oct 2026** and **Effective 1 Oct 2026**. 
 3. Show how the decision panel changes (Action required vs Passed).
-4. Scroll down to the **45-day clock twin** and click **Simulate Notice 2** to show the dates changing dynamically.
 
-> "Tax rules change. Our Regulatory Time Machine lets exporters see how the exact same evidence behaves under different Gazetted rules. If we switch to the new October 2026 invoice profile, the system instantly recalculates our compliance gaps. We can also simulate real-world delays, like IRD Notice 2, to see the direct impact on our 45-day refund timeline."
+> "Tax rules change. Our Regulatory Time Machine lets exporters see how the same evidence behaves under different Gazetted rules. When we switch to the October 2026 invoice profile, the system instantly recalculates our compliance gaps against official government sources."
+
+Keep it short: just show the date toggle and one rule change. Skip the Notice 2 simulation to stay on time.
 
 ---
 
-## 2:00-2:25 — What-If Rescue & Mock Filing
+## 2:05-2:35 — What-If Rescue & Mock Filing
 
 **Do:**
 1. Click **Overview** in the sidebar.
-2. Click the primary **Run what-if: fix all** button at the top. The score jumps to 100.
+2. Click the primary **Run what-if: fix all** button at the top. The score jumps to 89.
 3. Click **Review filing** in the top right.
 4. Check the "I reviewed the evidence packet..." authorization box.
 5. Click **Submit to mock portal**. 
 6. A success modal with a mock receipt appears. Close the modal.
 
-> "To fix these issues, we can run a What-If scenario. Resolving the missing evidence immediately bumps our readiness score to 100. The package is now approval-ready. In the filing workspace, an authorized human must explicitly review the package before submitting it to the mock portal, keeping humans firmly in the loop."
+> "To fix these issues, we can run a What-If scenario. Resolving the missing evidence bumps our readiness score from 68 to 89. The package is now approval-ready. In the filing workspace, an authorized human must explicitly review the package before submitting it to the mock portal, keeping humans firmly in the loop."
+
+**Note:** The score is 89, not 100. The remaining 11 points require evidence the synthetic case does not contain—which is honest and more credible than a perfect 100.
 
 ---
 
-## 2:25-3:00 — Audit Trail & Close
+## 2:35-3:00 — Audit Trail & Close
 
 **Do:**
 1. Click **Audit trail** in the sidebar.
-2. Slowly scroll through the timeline showing agent actions and human resolutions.
-3. Point out the mock filing completion event.
-4. Click **Export synthetic audit log** (a JSON file downloads).
+2. Scroll through the timeline showing agent actions, human resolutions, and the filing event.
+3. Optionally click **Export synthetic audit log** (a JSON file downloads).
 
-> "Every action taken by Qwen, our deterministic agents, and the human reviewer is permanently logged in a verifiable audit trail. With ComplyPilot, exporters get fewer preventable errors, faster internal reviews, and absolute confidence in their 45-day VAT refund timeline."
+> "Every action taken by Qwen, our deterministic agents, and the human reviewer is permanently logged in a verifiable audit trail. With ComplyPilot, exporters get fewer preventable errors, faster internal reviews, and a defensible evidence trail for the 45-day VAT refund clock."
 
 *End recording.*
