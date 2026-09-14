@@ -2,14 +2,19 @@ import { extractInvoiceData } from "../ai/qwen-client";
 import { analyzeDocument } from "../agents/document-agent";
 import { analyzeReconciliation } from "../agents/reconciliation-agent";
 import { calculateReadiness, calculateClaimValue } from "../agents/readiness-agent";
+import { createRescuePlan } from "../agents/rescue-planner-agent";
+import { createSmartFixPlan } from "../agents/smart-fix-agent";
+import { selectInvoiceRuleProfile } from "../rules/rule-selection";
 import {
   AnalyzeResult,
+  DataMode,
   Finding,
   TraceStage,
   VatScheduleEvidence,
   WorkflowInfo,
 } from "../types";
 import type { StoredRun } from "../runs/run-store";
+import { FIXTURE_INVOICE } from "../fixtures/demo-case";
 import {
   governmentDataSummary,
   inactiveVatSnapshot,
@@ -66,17 +71,26 @@ export async function runOrchestrator(
   previous?: StoredRun,
   /** A newly uploaded VAT Schedule CSV. Previous evidence is reused when omitted. */
   scheduleUpload?: VatScheduleEvidence,
+  /** Explicitly separates the bundled golden case from user-provided evidence. */
+  requestedDataMode?: DataMode,
 ): Promise<AnalyzeResult> {
   const trace: TraceStage[] = [];
-  let mode: AnalyzeResult["mode"] = "LIVE_QWEN";
+  const previousDataMode = previous?.analysis.dataMode;
+  const dataMode: DataMode =
+    requestedDataMode ??
+    previousDataMode ??
+    (image || scheduleUpload ? "USER_PROVIDED" : "SYNTHETIC_DEMO");
+  const reusablePrevious = previousDataMode === dataMode ? previous : undefined;
+  let mode: AnalyzeResult["mode"] = "DEMO_FALLBACK";
   let fallbackReason: string | null = null;
   let extraction = null;
-  const scheduleEvidence = scheduleUpload ?? previous?.scheduleEvidence ?? null;
+  const scheduleEvidence = scheduleUpload ?? reusablePrevious?.scheduleEvidence ?? null;
 
   if (image) {
     const started = performance.now();
     try {
       extraction = await extractInvoiceData(image.base64, image.mimeType);
+      mode = "LIVE_QWEN";
       trace.push({
         name: "Qwen extraction",
         status: "ok",
@@ -95,41 +109,79 @@ export async function runOrchestrator(
       });
       console.warn("[orchestrator] Qwen extraction failed, using demo fixtures:", fallbackReason);
     }
-  } else if (previous) {
+  } else if (reusablePrevious) {
     // Resolving a blocker or changing rule profile re-runs the deterministic
     // checks against whatever this run already extracted.
-    extraction = previous.extraction;
-    mode = previous.mode;
-    fallbackReason = previous.fallbackReason;
+    extraction = reusablePrevious.extraction;
+    mode = reusablePrevious.mode;
+    fallbackReason = reusablePrevious.fallbackReason;
     trace.push({
       name: "Qwen extraction",
       status: "ok",
       ms: 0,
       detail: "Reused the extraction from this run.",
     });
-  } else {
+  } else if (dataMode === "SYNTHETIC_DEMO") {
+    extraction = FIXTURE_INVOICE;
     mode = "DEMO_FALLBACK";
-    fallbackReason = "No document was uploaded, so the synthetic demo case is shown.";
+    fallbackReason = "The named synthetic Team Odin demo invoice is shown; Model Studio was not called.";
     trace.push({
       name: "Qwen extraction",
       status: "waiting",
       ms: 0,
-      detail: "No document uploaded.",
+      detail: "Synthetic extraction fixture loaded; no Model Studio call occurred.",
+    });
+  } else {
+    mode = "DEMO_FALLBACK";
+    fallbackReason = "No usable extraction exists for this user-provided case.";
+    trace.push({
+      name: "Qwen extraction",
+      status: "waiting",
+      ms: 0,
+      detail: "User-provided case is waiting for a supported invoice image.",
     });
   }
 
   const runId =
-    previous?.runId ?? `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    reusablePrevious?.runId ?? `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
   // 1. Document Compliance Agent
   const docFinding = await timed(trace, "Document Compliance Agent", () =>
     analyzeDocument(extraction, isFutureRules),
   );
 
-  // 2. Supplier & Reconciliation Agent
-  const reconciliation = await timed(trace, "Reconciliation Agent", () =>
-    analyzeReconciliation(extraction, scheduleEvidence),
+  // Which rule pack the invoice's own date selects. The UI toggle is treated as
+  // a reviewer override so a disagreement is shown as a what-if rather than
+  // silently presented as the rule in force on that date.
+  const documentDate =
+    (extraction as any)?.invoiceDate?.value ?? (extraction as any)?.supplyDate?.value ?? null;
+  const ruleSelection = selectInvoiceRuleProfile(
+    documentDate,
+    isFutureRules ? "v2026.10" : "historical",
   );
+  trace.push({
+    name: "Rule profile from document date",
+    status: ruleSelection.overriddenFrom ? "waiting" : "ok",
+    ms: 0,
+    detail: ruleSelection.reason,
+  });
+
+  const smartFix = await timed(trace, "AI Smart Fix Agent", () =>
+    createSmartFixPlan(extraction, isFutureRules),
+  );
+  trace.at(-1)!.detail =
+    smartFix.status === "NEEDS_REVIEW"
+      ? `${smartFix.autoDraftCount} safe draft action(s); ${smartFix.humanInputCount} source fact(s) need a human.`
+      : `Smart Fix status: ${smartFix.status}.`;
+
+  // 2. Supplier & Reconciliation Agent
+  const reconciliation = await timed(trace, "AI Semantic Reconciliation Agent", () =>
+    analyzeReconciliation(extraction, scheduleEvidence, dataMode === "SYNTHETIC_DEMO"),
+  );
+  trace.at(-1)!.detail =
+    reconciliation.schedule.matchScore === null
+      ? `Status: ${reconciliation.schedule.status}.`
+      : `${reconciliation.schedule.matchMode} returned ${reconciliation.schedule.matchScore}/100; status ${reconciliation.schedule.status}.`;
 
   let allFindings: Finding[] = [];
   if (docFinding) allFindings.push(docFinding);
@@ -170,14 +222,19 @@ export async function runOrchestrator(
         ruleProfile: isFutureRules ? "v2026.10" : "historical",
         invoice: (extraction as Record<string, unknown> | null) ?? null,
         schedule: {
-          source: scheduleEvidence ? "upload" : "fixture",
+          source: scheduleEvidence ? "upload" : dataMode === "SYNTHETIC_DEMO" ? "fixture" : "not-supplied",
           fileName: scheduleEvidence?.fileName ?? null,
           rowCount: scheduleEvidence?.rows.length ?? 0,
-          totalLkr: reconciliation.schedule.totals?.netAmount ?? FIXTURE_TOTALS.scheduleLkr,
+          totalLkr:
+            reconciliation.schedule.totals?.netAmount ??
+            (dataMode === "SYNTHETIC_DEMO" ? FIXTURE_TOTALS.scheduleLkr : 0),
           rows: scheduleEvidence?.rows ?? [],
         },
-        cusdec: { totalLkr: FIXTURE_TOTALS.cusdecLkr },
-        supplier: { snapshotDate: FIXTURE_TOTALS.supplierSnapshotDate },
+        cusdec: { totalLkr: dataMode === "SYNTHETIC_DEMO" ? FIXTURE_TOTALS.cusdecLkr : 0 },
+        supplier: {
+          snapshotDate:
+            dataMode === "SYNTHETIC_DEMO" ? FIXTURE_TOTALS.supplierSnapshotDate : "not-supplied",
+        },
         governmentContext: {
           sourceVerifiedAt: governmentDataSummary.lastVerifiedAt ?? "unknown",
           invoiceRulePack: {
@@ -242,6 +299,13 @@ export async function runOrchestrator(
     calculateReadiness(allFindings),
   );
   const claimValueUnderReviewLkr = calculateClaimValue(allFindings);
+  const rescuePlan = await timed(trace, "AI Refund Rescue Planner", () =>
+    createRescuePlan(allFindings, score),
+  );
+  trace.at(-1)!.detail =
+    rescuePlan.mode === "LIVE_QWEN"
+      ? `Qwen explained ${rescuePlan.actions.length} deterministic rescue action(s).`
+      : `${rescuePlan.actions.length} deterministic rescue action(s); Qwen narrative fallback disclosed.`;
 
   const openCount = allFindings.filter((finding) => finding.status === "open").length;
   const gate: WorkflowInfo["gate"] = openCount === 0 ? "READY_TO_FILE" : "NEEDS_HUMAN";
@@ -257,6 +321,7 @@ export async function runOrchestrator(
 
   return {
     runId,
+    dataMode,
     mode,
     workflow: {
       mode: workflowMode,
@@ -268,10 +333,20 @@ export async function runOrchestrator(
     },
     fallbackReason,
     invoice: extraction,
+    smartFix,
+    ruleSelection: {
+      profile: ruleSelection.profile,
+      effectiveFrom: ruleSelection.effectiveFrom,
+      reason: ruleSelection.reason,
+      overriddenFrom: ruleSelection.overriddenFrom,
+      sourceIds: ruleSelection.sourceIds,
+      invoiceDate: ruleSelection.invoiceDate,
+    },
     scheduleEvidence,
     scheduleReconciliation: reconciliation.schedule,
     findings: allFindings,
     score,
+    rescuePlan,
     claimValueUnderReviewLkr,
     auditEvents: [],
   };

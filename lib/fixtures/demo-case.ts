@@ -1,4 +1,48 @@
-import { Finding } from "../types";
+import type { InvoiceExtraction } from "../ai/extraction-schema";
+import type { Finding } from "../types";
+
+const field = (
+  value: string | number | null,
+  confidence = value === null ? 0 : 98,
+  source = "Synthetic Team Odin demo invoice",
+) => ({ value, confidence, source });
+
+/**
+ * One internally consistent synthetic invoice for the golden demo path.
+ * It deliberately contains two post-October issues: a missing TAX INVOICE
+ * heading and a missing purchaser TIN. The VAT amount connects the document
+ * finding to LKR 0.8M of the synthetic LKR 4.2M case exposure.
+ */
+export const FIXTURE_INVOICE: InvoiceExtraction = {
+  invoiceTitle: field(null),
+  sellerName: field("Ceylon Industrial Supplies (Pvt) Ltd"),
+  sellerVatNumber: field("123456789"),
+  sellerAddress: field("88 Export Avenue, Colombo 02"),
+  sellerTelephone: field("0112456789"),
+  buyerName: field("Serendib Export Works (Pvt) Ltd"),
+  buyerTin: field(null),
+  buyerAddress: field("14 Harbour Road, Colombo 01"),
+  buyerTelephone: field(null),
+  invoiceNumber: field("26OCT_BR03_1030"),
+  invoiceDate: field("10/12/2026"),
+  supplyDate: field("10/10/2026"),
+  placeOfSupply: field("Colombo"),
+  currency: field("LKR"),
+  netTotal: field(4_444_444.44),
+  vatTotal: field(800_000),
+  grossTotal: field(5_244_444.44),
+  totalInWords: field(null),
+  paymentMode: field("Bank Transfer"),
+  lineItems: [
+    {
+      description: field("Export packaging and production materials"),
+      quantity: field(1),
+      unitPrice: field(4_444_444.44),
+      amount: field(4_444_444.44),
+      vatRate: field(18),
+    },
+  ],
+};
 
 export const FIXTURE_FINDINGS: Finding[] = [
   {

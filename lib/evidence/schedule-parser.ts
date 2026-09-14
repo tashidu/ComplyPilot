@@ -51,6 +51,8 @@ function normaliseHeader(value: string): string {
 const ALIASES = {
   invoiceNumber: ["invoicenumber", "invoiceno", "taxinvoicenumber", "taxinvoiceno", "invoiceid"],
   supplierTin: ["suppliertin", "sellertin", "tin", "vatregistrationnumber", "suppliervatnumber"],
+  supplierName: ["suppliername", "sellername", "vendorname", "supplier", "vendor"],
+  invoiceDate: ["invoicedate", "dateofinvoice", "taxinvoicedate", "date"],
   netAmount: ["netamount", "netvalue", "valueofsupply", "amountexcludingvat", "taxablevalue"],
   vatAmount: ["vatamount", "inputvat", "outputvat", "vatvalue", "taxamount", "vat"],
   grossAmount: ["grossamount", "totalamount", "amountincludingvat", "invoiceamount", "total"],
@@ -93,6 +95,8 @@ export function parseVatScheduleCsv(
   const indices = {
     invoiceNumber: columnIndex(headers, ALIASES.invoiceNumber),
     supplierTin: columnIndex(headers, ALIASES.supplierTin),
+    supplierName: columnIndex(headers, ALIASES.supplierName),
+    invoiceDate: columnIndex(headers, ALIASES.invoiceDate),
     netAmount: columnIndex(headers, ALIASES.netAmount),
     vatAmount: columnIndex(headers, ALIASES.vatAmount),
     grossAmount: columnIndex(headers, ALIASES.grossAmount),
@@ -113,6 +117,8 @@ export function parseVatScheduleCsv(
     rowNumber: index + 2,
     invoiceNumber: textValue(row, indices.invoiceNumber),
     supplierTin: textValue(row, indices.supplierTin)?.replace(/\D/g, "") || null,
+    supplierName: textValue(row, indices.supplierName),
+    invoiceDate: textValue(row, indices.invoiceDate),
     netAmount: numberValue(row, indices.netAmount),
     vatAmount: numberValue(row, indices.vatAmount),
     grossAmount: numberValue(row, indices.grossAmount),
@@ -124,6 +130,8 @@ export function parseVatScheduleCsv(
 
   const warnings: string[] = [];
   if (indices.supplierTin < 0) warnings.push("Supplier TIN column was not found.");
+  if (indices.supplierName < 0) warnings.push("Supplier Name column was not found; semantic entity matching is limited.");
+  if (indices.invoiceDate < 0) warnings.push("Invoice Date column was not found; date proximity cannot be scored.");
   if (indices.netAmount < 0) warnings.push("Net Amount column was not found.");
   if (indices.vatAmount < 0) warnings.push("VAT Amount column was not found.");
   if (indices.grossAmount < 0) warnings.push("Gross Amount column was not found.");

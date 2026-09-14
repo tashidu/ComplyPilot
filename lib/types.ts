@@ -9,6 +9,8 @@ export type FindingSeverity = "high" | "medium" | "low";
 
 export type FindingStatus = "open" | "resolved" | "inactive";
 
+export type DataMode = "SYNTHETIC_DEMO" | "USER_PROVIDED";
+
 export type GraphNode = {
   title: string;
   detail: string;
@@ -71,6 +73,8 @@ export type VatScheduleRow = {
   rowNumber: number;
   invoiceNumber: string | null;
   supplierTin: string | null;
+  supplierName: string | null;
+  invoiceDate: string | null;
   netAmount: number | null;
   vatAmount: number | null;
   grossAmount: number | null;
@@ -85,18 +89,44 @@ export type VatScheduleEvidence = {
 };
 
 export type ReconciliationVariance = {
-  field: "invoiceNumber" | "supplierTin" | "netAmount" | "vatAmount" | "grossAmount";
+  field:
+    | "invoiceNumber"
+    | "supplierTin"
+    | "supplierName"
+    | "invoiceDate"
+    | "netAmount"
+    | "vatAmount"
+    | "grossAmount";
   label: string;
   invoiceValue: string | number | null;
   scheduleValue: string | number | null;
   difference: number | null;
 };
 
+export type ReconciliationFeatureScore = {
+  key: "supplierTin" | "invoiceNumber" | "amounts" | "invoiceDate" | "supplierName";
+  label: string;
+  earned: number;
+  available: number;
+  detail: string;
+  source: "deterministic" | "qwen-embedding";
+};
+
 export type ScheduleReconciliation = {
-  status: "NOT_UPLOADED" | "NEEDS_INVOICE" | "MATCHED" | "MISMATCH";
+  status:
+    | "NOT_UPLOADED"
+    | "NEEDS_INVOICE"
+    | "MATCHED"
+    | "NEEDS_REVIEW"
+    | "MISMATCH"
+    | "UNMATCHED";
   fileName: string | null;
   rowCount: number;
   matchedRowNumber: number | null;
+  candidateCount: number;
+  matchScore: number | null;
+  matchMode: "LIVE_QWEN_EMBEDDING" | "LOCAL_SIMILARITY" | "NOT_RUN";
+  matchFeatures: ReconciliationFeatureScore[];
   matchedFields: string[];
   variances: ReconciliationVariance[];
   warnings: string[];
@@ -107,17 +137,75 @@ export type ScheduleReconciliation = {
   } | null;
 };
 
+export type SmartFixAction = {
+  field: string;
+  label: string;
+  observedValue: string | number | boolean | null;
+  suggestedValue: string | number | boolean | null;
+  decision: "AI_DRAFT" | "NEEDS_HUMAN";
+  reason: string;
+  confidence: number;
+  ruleId: string;
+  sourceIds: string[];
+};
+
+export type SmartFixPlan = {
+  status: "NO_INVOICE" | "NOT_APPLICABLE" | "COMPLIANT" | "NEEDS_REVIEW";
+  actions: SmartFixAction[];
+  autoDraftCount: number;
+  humanInputCount: number;
+  draftInvoice: Record<string, unknown> | null;
+  disclaimer: string;
+};
+
+export type RescueAction = {
+  rank: number;
+  findingId: string;
+  title: string;
+  requiredAction: string;
+  scoreGain: number;
+  lkrAtRisk: number;
+};
+
+export type RescuePlan = {
+  mode: "LIVE_QWEN" | "DETERMINISTIC";
+  fallbackReason: string | null;
+  headline: string;
+  explanation: string;
+  actualScore: number;
+  simulatedScore: number;
+  actualLkrAtRisk: number;
+  simulatedLkrAtRisk: number;
+  actions: RescueAction[];
+  disclaimer: string;
+};
+
+/** Which invoice rule pack the document's own date selects, and why. */
+export type RuleSelectionInfo = {
+  profile: "historical" | "v2026.10";
+  effectiveFrom: string;
+  reason: string;
+  /** The date-derived profile, set only when a reviewer chose the other one. */
+  overriddenFrom: "historical" | "v2026.10" | null;
+  sourceIds: string[];
+  invoiceDate: string | null;
+};
+
 export type AnalyzeResult = {
   runId: string;
+  dataMode: DataMode;
   mode: "LIVE_QWEN" | "DEMO_FALLBACK";
   workflow: WorkflowInfo;
   /** Why the run fell back to fixtures. Null on a live run. Shown in the UI. */
   fallbackReason: string | null;
   invoice: any | null; // From Qwen
+  smartFix: SmartFixPlan;
+  ruleSelection: RuleSelectionInfo;
   scheduleEvidence: VatScheduleEvidence | null;
   scheduleReconciliation: ScheduleReconciliation;
   findings: Finding[];
   score: Score;
+  rescuePlan: RescuePlan;
   claimValueUnderReviewLkr: number;
   auditEvents: AuditEvent[];
 };

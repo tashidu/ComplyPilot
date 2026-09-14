@@ -25,7 +25,7 @@ export const WorkflowInputSchema = z.object({
   ruleProfile: z.string(),
   invoice: z.record(z.string(), z.unknown()).nullable(),
   schedule: z.object({
-    source: z.enum(["fixture", "upload"]),
+    source: z.enum(["fixture", "upload", "not-supplied"]),
     fileName: z.string().nullable(),
     rowCount: z.number().int().nonnegative(),
     totalLkr: z.number(),
@@ -34,6 +34,8 @@ export const WorkflowInputSchema = z.object({
         rowNumber: z.number().int().positive(),
         invoiceNumber: z.string().nullable(),
         supplierTin: z.string().nullable(),
+        supplierName: z.string().nullable(),
+        invoiceDate: z.string().nullable(),
         netAmount: z.number().nullable(),
         vatAmount: z.number().nullable(),
         grossAmount: z.number().nullable(),
