@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { runOrchestrator } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
 import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 
 export const runtime = "nodejs";
 
+const ResolveRequestSchema = z.object({
+  findingId: z.string().min(1),
+  resolvedBlockers: z.array(z.string().min(1)).max(50).optional().default([]),
+  futureRules: z.boolean().optional().default(false),
+  runId: z.string().min(1).max(120).nullable().optional(),
+});
+
 export async function POST(req: Request) {
   const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
   try {
-    const { findingId, resolvedBlockers, futureRules, runId } = await req.json();
-
-    if (!findingId) {
-      return NextResponse.json({ error: "findingId is required" }, { status: 400 });
+    const body = await req.json().catch(() => null);
+    const parsed = ResolveRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Send a findingId and, optionally, resolvedBlockers, futureRules and runId." },
+        { status: 400 },
+      );
     }
+    const { findingId, resolvedBlockers, futureRules, runId } = parsed.data;
 
-    const currentResolved = new Set<string>(resolvedBlockers || []);
+    const currentResolved = new Set<string>(resolvedBlockers);
     
     // Toggle the findingId
     if (currentResolved.has(findingId)) {
@@ -28,7 +40,7 @@ export async function POST(req: Request) {
     // Re-run the deterministic checks against whatever this run extracted,
     // without making another AI call.
     const previous = await recallRun(runId, ownerSessionId);
-    const result = await runOrchestrator(null, !!futureRules, nextResolved, previous);
+    const result = await runOrchestrator(null, futureRules, nextResolved, previous);
     await rememberRun(result, ownerSessionId);
 
     // Prepare audit event

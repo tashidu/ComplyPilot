@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
 import { consumeRateLimit } from "@/lib/runs/rate-limit";
@@ -15,6 +16,8 @@ const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
 // so a public URL must not let an unauthenticated burst exhaust it.
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_LIMIT = 20;
+
+const ResolvedBlockersSchema = z.array(z.string().min(1)).max(50);
 
 function now() {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -65,8 +68,24 @@ export async function POST(req: Request) {
     }
 
     const futureRules = formData.get("futureRules") === "true";
-    const resolvedBlockersStr = formData.get("resolvedBlockers") as string;
-    const resolvedBlockers = resolvedBlockersStr ? JSON.parse(resolvedBlockersStr) : [];
+    const resolvedBlockersStr = formData.get("resolvedBlockers") as string | null;
+    let resolvedBlockers: string[] = [];
+    if (resolvedBlockersStr) {
+      let parsedBlockers: unknown;
+      try {
+        parsedBlockers = JSON.parse(resolvedBlockersStr);
+      } catch {
+        return NextResponse.json({ error: "resolvedBlockers must be valid JSON." }, { status: 400 });
+      }
+      const validated = ResolvedBlockersSchema.safeParse(parsedBlockers);
+      if (!validated.success) {
+        return NextResponse.json(
+          { error: "resolvedBlockers must be an array of finding ids." },
+          { status: 400 },
+        );
+      }
+      resolvedBlockers = validated.data;
+    }
 
     // Continue an existing run when no new file is supplied, so a live
     // extraction is not replaced by fixtures on a rule-profile change.
