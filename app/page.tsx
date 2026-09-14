@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AuditView } from "@/components/audit-view";
+import { AccountView } from "@/components/account-view";
 import { BusinessProfileView, type ProfileFormValue } from "@/components/business-profile-view";
 import { DataCopilot } from "@/components/data-copilot";
 import { EvidenceView } from "@/components/evidence-view";
@@ -15,10 +16,12 @@ import { Sidebar, type ViewId } from "@/components/sidebar";
 import { SmartFixView } from "@/components/smart-fix-view";
 import { SubmissionHistoryView } from "@/components/submission-history-view";
 import { TasksView } from "@/components/tasks-view";
+import { VatRegistrationView, type RegistrationDraft } from "@/components/vat-registration-view";
 import { Modal, Toast } from "@/components/ui";
 import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
+import type { AuthUser } from "@/lib/auth/types";
 import type { BusinessWorkspace, WorkspaceTask } from "@/lib/workspace/workspace";
 
 type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
@@ -29,6 +32,7 @@ export default function Page() {
   const [resolved, setResolved] = useState<string[]>([]);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
   const [workspace, setWorkspace] = useState<BusinessWorkspace | null>(null);
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -137,6 +141,7 @@ export default function Page() {
         const nextWorkspace = data.workspace as BusinessWorkspace;
         if (cancelled) return;
         setWorkspace(nextWorkspace);
+        setAuthUser((data.user as AuthUser | null) ?? null);
         const profile = nextWorkspace.profiles.find((candidate) => candidate.id === nextWorkspace.activeProfileId) ?? nextWorkspace.profiles[0];
         const period = nextWorkspace.periods.find((candidate) => candidate.id === profile.activePeriodId);
         dataModeRef.current = profile.isSynthetic ? "SYNTHETIC_DEMO" : "USER_PROVIDED";
@@ -286,6 +291,13 @@ export default function Page() {
   }, [fetchAnalysis, futureRules, postWorkspaceAction]);
 
   const saveProfile = useCallback(async (profileId: string, profile: ProfileFormValue) => Boolean(await postWorkspaceAction({ action: "update_profile", profileId, profile })), [postWorkspaceAction]);
+
+  const saveVatRegistration = useCallback(async (application: RegistrationDraft) => {
+    if (!activeProfile) return false;
+    const updated = await postWorkspaceAction({ action: "save_vat_registration", profileId: activeProfile.id, application });
+    if (updated) showToast("VAT registration progress saved");
+    return Boolean(updated);
+  }, [activeProfile, postWorkspaceAction, showToast]);
 
   const createProfile = useCallback(async (profile: ProfileFormValue) => {
     const updated = await postWorkspaceAction({ action: "create_profile", profile });
@@ -469,11 +481,14 @@ export default function Page() {
             <span className={`pill ${analyzeResult.dataMode === "USER_PROVIDED" ? "live" : "fallback"}`}><i className="dot" />{analyzeResult.dataMode === "USER_PROVIDED" ? "USER DATA" : "SYNTHETIC DEMO"}</span>
             <span className={`pill ${analyzeResult.mode === "LIVE_QWEN" ? "live" : "fallback"}`} title={analyzeResult.fallbackReason ?? "Fields were extracted by Alibaba Cloud Model Studio for this run."}><i className="dot" />AI: {analyzeResult.mode === "LIVE_QWEN" ? "LIVE QWEN" : "DEMO FALLBACK"}</span>
             <span className={`pill ${analyzeResult.workflow.mode === "LIVE_MULERUN" ? "live" : "fallback"}`} title={analyzeResult.workflow.fallbackReason ?? `MuleRun execution ${analyzeResult.workflow.executionId ?? ""}`}><i className="dot" />Workflow: {analyzeResult.workflow.mode === "LIVE_MULERUN" ? "LIVE MULERUN" : analyzeResult.workflow.muleRunAttempted ? "LOCAL FALLBACK" : "LOCAL"}</span>
+            <button className="account-chip" onClick={() => navigate("account")} title={authUser ? authUser.email : "Guest demo session"}><span>{authUser ? authUser.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() : "G"}</span>{authUser ? authUser.fullName.split(" ")[0] : "Guest"}</button>
             <button className="button" onClick={() => void resetAnalysis()}>Reset analysis</button>
             <button className="button primary" onClick={() => navigate(periodApproved ? "filing" : "period-close")}>{periodApproved ? "Open filing" : "Close period"}</button>
           </div>
         </header>
         <div className="content">
+          {view === "account" ? <AccountView user={authUser} onAuthenticated={setAuthUser} /> : null}
+          {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} /> : null}
           {view === "overview" ? <OverviewView result={analyzeResult} futureRules={futureRules} files={inboxCount} onAddFiles={addFiles} onToggleResolve={(id) => navigate(id === "invoice" ? "smart-fix" : "tasks")} onQueueRescueActions={queueRescueActions} onOpenEvidence={openEvidence} onExportPassport={exportPassport} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
           {view === "inbox" ? <InvoiceInboxView workspace={workspace} profile={activeProfile} period={activePeriod} busy={uploading} onAddFiles={addFiles} /> : null}
           {view === "tasks" ? <TasksView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={saveTask} onComplete={completeTask} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
@@ -490,7 +505,7 @@ export default function Page() {
       </main>
       <Toast message={toast.message} show={toast.show} />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} auditCount={audit.length} receiptNumber={receiptNumber} />
-      <DataCopilot runId={analyzeResult.runId} contextVersion={`${activeProfile.id}:${activePeriod.id}:${analyzeResult.dataMode}:${analyzeResult.mode}:${analyzeResult.workflow.mode}:${analyzeResult.score.total}:${analyzeResult.invoice?.invoiceNumber?.value ?? "no-invoice"}:${analyzeResult.scheduleReconciliation.status}:${analyzeResult.findings.map((finding) => `${finding.id}-${finding.status}`).join("|")}`} onAuditEvent={(mode) => addAudit("agent", "Data Copilot answered from the current run", mode === "LIVE_QWEN" ? "Qwen answered using the structured case and official-reference context." : "A deterministic grounded fallback answered because live Qwen was unavailable.")} />
+      <DataCopilot runId={analyzeResult.runId} contextVersion={`${activeProfile.id}:${activePeriod.id}:${workspace.vatRegistrations.find((item) => item.profileId === activeProfile.id)?.updatedAt ?? "no-registration"}:${analyzeResult.dataMode}:${analyzeResult.mode}:${analyzeResult.workflow.mode}:${analyzeResult.score.total}:${analyzeResult.invoice?.invoiceNumber?.value ?? "no-invoice"}:${analyzeResult.scheduleReconciliation.status}:${analyzeResult.findings.map((finding) => `${finding.id}-${finding.status}`).join("|")}`} onAuditEvent={(mode) => addAudit("agent", "VAT Copilot answered from trusted context", mode === "LIVE_QWEN" ? "Qwen answered using the business, registration, case and official-reference context." : "A deterministic grounded fallback answered because live Qwen was unavailable.")} />
     </div>
   );
 }

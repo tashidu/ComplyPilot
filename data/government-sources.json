@@ -71,6 +71,45 @@
     "note": "IRD reference page currently lists the standard VAT rate as 18% from 1 January 2024 and exports under the zero-rate section."
   },
   {
+    "id": "IRD-TPR-GUIDE-2026",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "Guidelines for Taxpayer Registration — 2026",
+    "category": "taxpayer-registration",
+    "url": "https://www.ird.gov.lk/en/Downloads/SiteAssets/TPR_Guidelines_2026_E.pdf",
+    "publicationDate": "2026-01-01",
+    "effectiveFrom": "2026-01-01",
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Official sequence and supporting-document guide for TIN, PIN/SSID and VAT tax-type registration, including turnover, voluntary, import/export, new-business and temporary routes."
+  },
+  {
+    "id": "IRD-TPR-005",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "Application for Tax Type Registration — TPR 005",
+    "category": "taxpayer-registration",
+    "url": "https://www.ird.gov.lk/en/Downloads/TaxpayerRegistrationDocs/TPR_005_E.pdf",
+    "publicationDate": null,
+    "effectiveFrom": null,
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Official tax-type application form covering VAT business activity, dates, values, address, registration basis and cash-basis request."
+  },
+  {
+    "id": "IRD-ESERVICES-REGISTRATION",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "Taxpayer Registration and Access to e-Services",
+    "category": "taxpayer-registration",
+    "url": "https://www.ird.gov.lk/en/eservices/sitepages/registration.aspx",
+    "publicationDate": null,
+    "effectiveFrom": null,
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Official online registration entry point. TIN and an e-Services PIN are prerequisites for authenticated online tax services."
+  },
+  {
     "id": "IRD-VAT-SCHEDULES",
     "authority": "Inland Revenue Department, Sri Lanka",
     "title": "VAT schedule downloads",

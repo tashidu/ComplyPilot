@@ -17,14 +17,14 @@ const STARTER: Message = {
   id: "welcome",
   role: "assistant",
   content:
-    "Ask me about this run's score, blockers, invoice extraction, VAT Schedule match, or bundled official sources.",
+    "Ask me about VAT registration, TIN/PIN, required documents, your saved application progress, or this period's invoice evidence.",
 };
 
 const QUICK_QUESTIONS = [
-  "Why is this case blocked?",
-  "Is the VAT Schedule matched?",
-  "What changed in October 2026?",
-  "Which official sources apply?",
+  "How do I register for VAT?",
+  "What VAT registration documents do I need?",
+  "Do I exceed the VAT threshold?",
+  "Is my VAT application ready?",
 ];
 
 export function DataCopilot({
@@ -131,18 +131,18 @@ export function DataCopilot({
   return (
     <>
       {open ? (
-        <section className="copilot-panel" role="dialog" aria-label="ComplyPilot Data Copilot">
+        <section className="copilot-panel" role="dialog" aria-label="ComplyPilot VAT Copilot">
           <header className="copilot-head">
             <div className="copilot-mark" aria-hidden="true">CP</div>
             <div>
-              <strong>Data Copilot</strong>
-              <span>Grounded in this analysis run</span>
+              <strong>VAT Copilot</strong>
+              <span>Grounded in your profile + official sources</span>
             </div>
             <button className="copilot-close" onClick={() => setOpen(false)} aria-label="Close data copilot">×</button>
           </header>
 
           <div className="copilot-boundary">
-            Decision support only · structured run data may be sent to configured Qwen
+            No IRD credentials · structured workspace data may be sent to configured Qwen
           </div>
 
           <div className="copilot-messages" aria-live="polite">
@@ -194,8 +194,8 @@ export function DataCopilot({
               value={input}
               onChange={(event) => setInput(event.target.value.slice(0, 800))}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about this case…"
-              aria-label="Question for Data Copilot"
+              placeholder="Ask a VAT question…"
+              aria-label="Question for VAT Copilot"
               rows={2}
               disabled={busy}
             />
@@ -208,10 +208,10 @@ export function DataCopilot({
         className="copilot-launcher"
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
-        aria-label={open ? "Close data copilot" : "Ask ComplyPilot about your data"}
+        aria-label={open ? "Close VAT copilot" : "Ask ComplyPilot about VAT"}
       >
         <span className="copilot-launcher-mark">CP</span>
-        <span>{open ? "Close" : "Ask your data"}</span>
+        <span>{open ? "Close" : "Ask VAT Copilot"}</span>
       </button>
     </>
   );

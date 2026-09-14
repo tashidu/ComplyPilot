@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getSession, withSession } from "@/lib/http/session";
 import { recallRun } from "@/lib/runs/run-store";
 import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-store";
+import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
 import {
   activeProfile,
   createId,
@@ -12,6 +13,7 @@ import {
   type BusinessProfile,
   type BusinessWorkspace,
   type FilingFrequency,
+  type VatRegistrationApplication,
   type VatPeriodRecord,
 } from "@/lib/workspace/workspace";
 
@@ -21,12 +23,19 @@ const DateText = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const ProfileFields = z.object({
   legalName: z.string().trim().max(140),
   displayName: z.string().trim().min(2).max(80),
+  entityType: z.enum(["COMPANY", "INDIVIDUAL_PROPRIETORSHIP", "PARTNERSHIP", "OTHER"]),
+  businessRegistrationNumber: z.string().trim().max(80),
+  incorporationDate: z.union([z.literal(""), DateText]),
   tin: z.union([z.literal(""), z.string().trim().regex(/^\d{9}$/, "TIN must contain nine digits.")]),
+  irdPinStatus: z.enum(["NOT_REQUESTED", "REQUESTED", "ACTIVE"]),
   vatRegistrationStatus: z.enum(["ACTIVE", "PENDING", "NOT_SET"]),
   filingFrequency: z.enum(["MONTHLY", "QUARTERLY"]),
   industry: z.string().trim().max(100),
   address: z.string().trim().max(240),
+  postalCode: z.string().trim().max(12),
+  contactPhone: z.string().trim().max(30),
   financeEmail: z.union([z.literal(""), z.string().email().max(160)]),
+  accountingSystem: z.string().trim().max(100),
   authorisedReviewer: z.string().trim().max(100),
   ramisConnection: z.enum(["SIMULATOR", "NOT_CONNECTED", "ONBOARDING"]),
 });
@@ -35,6 +44,31 @@ const WorkspaceAction = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create_profile"), profile: ProfileFields }),
   z.object({ action: z.literal("update_profile"), profileId: z.string().min(1).max(100), profile: ProfileFields }),
   z.object({ action: z.literal("activate_profile"), profileId: z.string().min(1).max(100) }),
+  z.object({
+    action: z.literal("save_vat_registration"),
+    profileId: z.string().min(1).max(100),
+    application: z.object({
+      basis: z.enum(["TURNOVER", "VOLUNTARY", "IMPORT_EXPORT", "SECTION_10C_NEW_BUSINESS", "TEMPORARY"]),
+      premisesNo: z.string().trim().max(40),
+      unitNo: z.string().trim().max(40),
+      taxTypeAddress: z.string().trim().max(240),
+      postalCode: z.string().trim().max(12),
+      businessActivity: z.string().trim().max(180),
+      activityCode: z.string().trim().max(30),
+      requestedEffectiveDate: z.union([z.literal(""), DateText]),
+      firstTransactionDate: z.union([z.literal(""), DateText]),
+      estimatedTaxableSupplyDate: z.union([z.literal(""), DateText]),
+      taxableSuppliesLastQuarterLkr: z.number().finite().min(0).max(1_000_000_000_000),
+      taxableSuppliesToDateLkr: z.number().finite().min(0).max(1_000_000_000_000),
+      estimatedTaxableSuppliesNext12MonthsLkr: z.number().finite().min(0).max(1_000_000_000_000),
+      operationAddress: z.string().trim().max(240),
+      cashBasisRequested: z.boolean(),
+      reason: z.string().trim().max(800),
+      signatoryName: z.string().trim().max(100),
+      signatoryNic: z.string().trim().max(30),
+      documents: z.array(z.object({ key: z.string().min(1).max(80), status: z.enum(["MISSING", "READY", "NOT_APPLICABLE"]), note: z.string().trim().max(300) })).max(30),
+    }),
+  }),
   z.object({
     action: z.literal("create_period"),
     profileId: z.string().min(1).max(100),
@@ -131,7 +165,7 @@ function defaultPeriod(profileId: string, frequency: FilingFrequency): VatPeriod
 export async function GET() {
   const session = await getSession();
   try {
-    return withSession({ workspace: await getOrCreateWorkspace(session.id) }, session);
+    return withSession({ workspace: await getOrCreateWorkspace(session.id), user: session.user }, session);
   } catch (error) {
     console.error("Error in GET /api/workspace", error);
     return NextResponse.json({ error: "The business workspace is unavailable. Check the database connection." }, { status: 503 });
@@ -180,6 +214,28 @@ export async function POST(req: Request) {
     } else if (input.action === "activate_profile") {
       findProfile(workspace, input.profileId);
       workspace = { ...workspace, activeProfileId: input.profileId, updatedAt: now };
+    } else if (input.action === "save_vat_registration") {
+      const profile = findProfile(workspace, input.profileId);
+      const existing = workspace.vatRegistrations.find((item) => item.profileId === profile.id);
+      const suppliedDocuments = input.application.documents.map((item) => ({ ...item, label: "", required: true }));
+      const application: VatRegistrationApplication = {
+        ...createVatRegistrationDraft(profile),
+        ...input.application,
+        id: existing?.id ?? createId("VATREG"),
+        profileId: profile.id,
+        documents: buildVatDocumentChecklist(input.application.basis, profile.entityType, suppliedDocuments),
+        status: "IN_PROGRESS" as const,
+        updatedAt: now,
+      };
+      const readiness = registrationReadiness(application, profile);
+      application.status = readiness.ready ? "READY_FOR_REVIEW" : "IN_PROGRESS";
+      workspace = {
+        ...workspace,
+        vatRegistrations: existing
+          ? workspace.vatRegistrations.map((item) => item.id === existing.id ? application : item)
+          : [...workspace.vatRegistrations, application],
+        updatedAt: now,
+      };
     } else if (input.action === "create_period") {
       const profile = findProfile(workspace, input.profileId);
       if (input.period.startDate > input.period.endDate) {

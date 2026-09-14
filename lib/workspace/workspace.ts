@@ -3,6 +3,8 @@ import type { AnalyzeResult, DataMode, FindingSeverity } from "../types";
 
 export type FilingFrequency = "MONTHLY" | "QUARTERLY";
 export type VatRegistrationStatus = "ACTIVE" | "PENDING" | "NOT_SET";
+export type BusinessEntityType = "COMPANY" | "INDIVIDUAL_PROPRIETORSHIP" | "PARTNERSHIP" | "OTHER";
+export type IrdPinStatus = "NOT_REQUESTED" | "REQUESTED" | "ACTIVE";
 export type RamisConnectionStatus = "SIMULATOR" | "NOT_CONNECTED" | "ONBOARDING" | "LIVE_APPROVED";
 export type VatPeriodStatus =
   | "COLLECTING"
@@ -13,22 +15,66 @@ export type VatPeriodStatus =
 export type InboxItemStatus = "PROCESSED" | "MATCHED" | "NEEDS_REVIEW" | "FAILED";
 export type InboxDocumentType = "INVOICE" | "VAT_SCHEDULE" | "CREDIT_DEBIT_NOTE" | "SUPPORTING_EVIDENCE";
 export type WorkspaceTaskStatus = "OPEN" | "WAITING_EVIDENCE" | "READY_FOR_REVIEW" | "COMPLETED";
+export type VatRegistrationBasis = "TURNOVER" | "VOLUNTARY" | "IMPORT_EXPORT" | "SECTION_10C_NEW_BUSINESS" | "TEMPORARY";
+export type VatRegistrationApplicationStatus = "NOT_STARTED" | "IN_PROGRESS" | "READY_FOR_REVIEW" | "EXTERNALLY_SUBMITTED";
+export type VatRegistrationDocumentStatus = "MISSING" | "READY" | "NOT_APPLICABLE";
 
 export type BusinessProfile = {
   id: string;
   legalName: string;
   displayName: string;
+  entityType: BusinessEntityType;
+  businessRegistrationNumber: string;
+  incorporationDate: string;
   tin: string;
+  irdPinStatus: IrdPinStatus;
   vatRegistrationStatus: VatRegistrationStatus;
   filingFrequency: FilingFrequency;
   industry: string;
   address: string;
+  postalCode: string;
+  contactPhone: string;
   financeEmail: string;
+  accountingSystem: string;
   authorisedReviewer: string;
   ramisConnection: RamisConnectionStatus;
   isSynthetic: boolean;
   activePeriodId: string;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type VatRegistrationDocument = {
+  key: string;
+  label: string;
+  required: boolean;
+  status: VatRegistrationDocumentStatus;
+  note: string;
+};
+
+export type VatRegistrationApplication = {
+  id: string;
+  profileId: string;
+  status: VatRegistrationApplicationStatus;
+  basis: VatRegistrationBasis;
+  premisesNo: string;
+  unitNo: string;
+  taxTypeAddress: string;
+  postalCode: string;
+  businessActivity: string;
+  activityCode: string;
+  requestedEffectiveDate: string;
+  firstTransactionDate: string;
+  estimatedTaxableSupplyDate: string;
+  taxableSuppliesLastQuarterLkr: number;
+  taxableSuppliesToDateLkr: number;
+  estimatedTaxableSuppliesNext12MonthsLkr: number;
+  operationAddress: string;
+  cashBasisRequested: boolean;
+  reason: string;
+  signatoryName: string;
+  signatoryNic: string;
+  documents: VatRegistrationDocument[];
   updatedAt: string;
 };
 
@@ -99,6 +145,7 @@ export type BusinessWorkspace = {
   inbox: InvoiceInboxItem[];
   tasks: WorkspaceTask[];
   submissions: SubmissionHistoryItem[];
+  vatRegistrations: VatRegistrationApplication[];
   updatedAt: string;
 };
 
@@ -122,12 +169,19 @@ export function createDefaultWorkspace(): BusinessWorkspace {
         id: profileId,
         legalName: "Serendib Export Works (Pvt) Ltd",
         displayName: "Serendib Export Works",
+        entityType: "COMPANY",
+        businessRegistrationNumber: "PV-DEMO-20481",
+        incorporationDate: "2019-04-18",
         tin: "134857291",
+        irdPinStatus: "ACTIVE",
         vatRegistrationStatus: "ACTIVE",
         filingFrequency: "MONTHLY",
         industry: "Export manufacturing",
-        address: "Colombo, Sri Lanka",
+        address: "42 Export Park, Colombo 03, Sri Lanka",
+        postalCode: "00300",
+        contactPhone: "+94 11 555 0188",
         financeEmail: "finance@serendib.demo",
+        accountingSystem: "Spreadsheet + ERP export",
         authorisedReviewer: "N. Perera",
         ramisConnection: "SIMULATOR",
         isSynthetic: true,
@@ -252,7 +306,26 @@ export function createDefaultWorkspace(): BusinessWorkspace {
         note: "Synthetic history item; no live IRD action occurred.",
       },
     ],
+    vatRegistrations: [],
     updatedAt: now,
+  };
+}
+
+/** Upgrades JSON workspaces created before profile and VAT-onboarding fields existed. */
+export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace {
+  return {
+    ...input,
+    profiles: input.profiles.map((profile) => ({
+      ...profile,
+      entityType: profile.entityType ?? "COMPANY",
+      businessRegistrationNumber: profile.businessRegistrationNumber ?? "",
+      incorporationDate: profile.incorporationDate ?? "",
+      irdPinStatus: profile.irdPinStatus ?? "NOT_REQUESTED",
+      postalCode: profile.postalCode ?? "",
+      contactPhone: profile.contactPhone ?? "",
+      accountingSystem: profile.accountingSystem ?? "",
+    })),
+    vatRegistrations: input.vatRegistrations ?? [],
   };
 }
 
@@ -271,9 +344,15 @@ export function activePeriod(workspace: BusinessWorkspace): VatPeriodRecord {
 export function isProfileComplete(profile: BusinessProfile): boolean {
   return Boolean(
     profile.legalName.trim() &&
+      profile.entityType &&
+      (profile.entityType === "INDIVIDUAL_PROPRIETORSHIP" || profile.businessRegistrationNumber.trim()) &&
       /^\d{9}$/.test(profile.tin.trim()) &&
+      profile.irdPinStatus === "ACTIVE" &&
       profile.vatRegistrationStatus === "ACTIVE" &&
       profile.filingFrequency &&
+      profile.address.trim() &&
+      profile.contactPhone.trim() &&
+      profile.financeEmail.trim() &&
       profile.authorisedReviewer.trim(),
   );
 }

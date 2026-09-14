@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { resolveAuthSession } from "../auth/auth-store";
+import type { AuthUser } from "../auth/types";
 
 /**
  * Per-browser demo session, shared by every route.
@@ -16,15 +18,21 @@ import { NextResponse } from "next/server";
  */
 
 export const SESSION_COOKIE = "cp_demo_session";
+export const AUTH_COOKIE = "cp_auth_session";
 const MAX_AGE_SECONDS = 60 * 60 * 8;
 
-export type Session = { id: string; isNew: boolean };
+export type Session = { id: string; isNew: boolean; user: AuthUser | null };
 
 export async function getSession(): Promise<Session> {
   const jar = await cookies();
+  const authToken = jar.get(AUTH_COOKIE)?.value;
+  if (authToken) {
+    const user = await resolveAuthSession(authToken);
+    if (user) return { id: `USER-${user.id}`, isNew: false, user };
+  }
   const existing = jar.get(SESSION_COOKIE)?.value;
-  if (existing) return { id: existing, isNew: false };
-  return { id: `S-${randomUUID()}`, isNew: true };
+  if (existing) return { id: existing, isNew: false, user: null };
+  return { id: `S-${randomUUID()}`, isNew: true, user: null };
 }
 
 /** Attaches the session cookie when the browser did not already have one. */

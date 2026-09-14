@@ -8,12 +8,19 @@ export type ProfileFormValue = Pick<
   BusinessProfile,
   | "legalName"
   | "displayName"
+  | "entityType"
+  | "businessRegistrationNumber"
+  | "incorporationDate"
   | "tin"
+  | "irdPinStatus"
   | "vatRegistrationStatus"
   | "filingFrequency"
   | "industry"
   | "address"
+  | "postalCode"
+  | "contactPhone"
   | "financeEmail"
+  | "accountingSystem"
   | "authorisedReviewer"
   | "ramisConnection"
 >;
@@ -21,12 +28,19 @@ export type ProfileFormValue = Pick<
 const EMPTY_PROFILE: ProfileFormValue = {
   legalName: "",
   displayName: "",
+  entityType: "COMPANY",
+  businessRegistrationNumber: "",
+  incorporationDate: "",
   tin: "",
+  irdPinStatus: "NOT_REQUESTED",
   vatRegistrationStatus: "NOT_SET",
   filingFrequency: "MONTHLY",
   industry: "",
   address: "",
+  postalCode: "",
+  contactPhone: "",
   financeEmail: "",
+  accountingSystem: "",
   authorisedReviewer: "",
   ramisConnection: "NOT_CONNECTED",
 };
@@ -35,12 +49,19 @@ function formValue(profile: BusinessProfile): ProfileFormValue {
   return {
     legalName: profile.legalName,
     displayName: profile.displayName,
+    entityType: profile.entityType,
+    businessRegistrationNumber: profile.businessRegistrationNumber,
+    incorporationDate: profile.incorporationDate,
     tin: profile.tin,
+    irdPinStatus: profile.irdPinStatus,
     vatRegistrationStatus: profile.vatRegistrationStatus,
     filingFrequency: profile.filingFrequency,
     industry: profile.industry,
     address: profile.address,
+    postalCode: profile.postalCode,
+    contactPhone: profile.contactPhone,
     financeEmail: profile.financeEmail,
+    accountingSystem: profile.accountingSystem,
     authorisedReviewer: profile.authorisedReviewer,
     ramisConnection: profile.ramisConnection === "LIVE_APPROVED" ? "ONBOARDING" : profile.ramisConnection,
   };
@@ -82,8 +103,14 @@ export function BusinessProfileView({
 
   const complete = Boolean(
     value.legalName.trim()
+      && value.entityType
+      && (value.entityType === "INDIVIDUAL_PROPRIETORSHIP" || value.businessRegistrationNumber.trim())
       && /^\d{9}$/.test(value.tin)
+      && value.irdPinStatus === "ACTIVE"
       && value.vatRegistrationStatus === "ACTIVE"
+      && value.address.trim()
+      && value.contactPhone.trim()
+      && value.financeEmail.trim()
       && value.authorisedReviewer.trim(),
   );
   const canSave = value.displayName.trim().length >= 2;
@@ -143,8 +170,22 @@ export function BusinessProfileView({
             <input value={value.displayName} onChange={(event) => update("displayName", event.target.value)} />
           </label>
           <label>
+            <span>Entity type</span>
+            <select value={value.entityType} onChange={(event) => update("entityType", event.target.value as ProfileFormValue["entityType"])}>
+              <option value="COMPANY">Company</option><option value="INDIVIDUAL_PROPRIETORSHIP">Individual / proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="OTHER">Other</option>
+            </select>
+          </label>
+          <label><span>Business Registration number</span><input value={value.businessRegistrationNumber} onChange={(event) => update("businessRegistrationNumber", event.target.value)} /></label>
+          <label><span>Incorporation / registration date</span><input type="date" value={value.incorporationDate} onChange={(event) => update("incorporationDate", event.target.value)} /></label>
+          <label>
             <span>TIN — nine digits</span>
             <input inputMode="numeric" maxLength={9} value={value.tin} onChange={(event) => update("tin", event.target.value.replace(/\D/g, ""))} />
+          </label>
+          <label>
+            <span>IRD e-Services PIN / SSID status</span>
+            <select value={value.irdPinStatus} onChange={(event) => update("irdPinStatus", event.target.value as ProfileFormValue["irdPinStatus"])}>
+              <option value="NOT_REQUESTED">Not requested</option><option value="REQUESTED">Requested</option><option value="ACTIVE">Active — user confirmed</option>
+            </select>
           </label>
           <label>
             <span>VAT registration status</span>
@@ -169,10 +210,13 @@ export function BusinessProfileView({
             <span>Business address</span>
             <input value={value.address} onChange={(event) => update("address", event.target.value)} />
           </label>
+          <label><span>Postal code</span><input inputMode="numeric" value={value.postalCode} onChange={(event) => update("postalCode", event.target.value)} /></label>
+          <label><span>Business phone</span><input type="tel" value={value.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} /></label>
           <label>
             <span>Finance email</span>
             <input type="email" value={value.financeEmail} onChange={(event) => update("financeEmail", event.target.value)} />
           </label>
+          <label><span>Accounting system</span><input placeholder="Excel, QuickBooks, ERP…" value={value.accountingSystem} onChange={(event) => update("accountingSystem", event.target.value)} /></label>
           <label>
             <span>Authorised reviewer</span>
             <input value={value.authorisedReviewer} onChange={(event) => update("authorisedReviewer", event.target.value)} />

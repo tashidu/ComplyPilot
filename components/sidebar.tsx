@@ -1,6 +1,9 @@
 "use client";
 
 export type ViewId =
+  | "account"
+  | "business"
+  | "vat-registration"
   | "overview"
   | "inbox"
   | "tasks"
@@ -10,11 +13,18 @@ export type ViewId =
   | "rules"
   | "periods"
   | "submissions"
-  | "business"
   | "filing"
   | "audit";
 
 const NAV: { label: string; items: { id: ViewId; label: string }[] }[] = [
+  {
+    label: "Setup",
+    items: [
+      { id: "account", label: "Account & login" },
+      { id: "business", label: "Business profile" },
+      { id: "vat-registration", label: "VAT registration" },
+    ],
+  },
   {
     label: "Current period",
     items: [
@@ -37,7 +47,6 @@ const NAV: { label: string; items: { id: ViewId; label: string }[] }[] = [
     items: [
       { id: "periods", label: "VAT periods" },
       { id: "submissions", label: "Submission history" },
-      { id: "business", label: "Business profiles" },
       { id: "filing", label: "Mock filing" },
       { id: "audit", label: "Audit trail" },
     ],

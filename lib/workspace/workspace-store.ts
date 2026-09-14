@@ -1,5 +1,5 @@
 import { getPool } from "../db/pool";
-import { createDefaultWorkspace, type BusinessWorkspace } from "./workspace";
+import { createDefaultWorkspace, normaliseWorkspace, type BusinessWorkspace } from "./workspace";
 
 const globalForWorkspace = globalThis as unknown as { __workspaceSchema?: Promise<void> };
 
@@ -40,7 +40,11 @@ export async function getOrCreateWorkspace(ownerSessionId: string): Promise<Busi
     `SELECT payload FROM business_workspaces WHERE owner_session_id = $1`,
     [ownerSessionId],
   );
-  if (existing.rows[0]?.payload) return existing.rows[0].payload;
+  if (existing.rows[0]?.payload) {
+    const workspace = normaliseWorkspace(existing.rows[0].payload);
+    await saveWorkspace(ownerSessionId, workspace);
+    return workspace;
+  }
 
   const workspace = createDefaultWorkspace();
   await getPool().query(
@@ -53,5 +57,5 @@ export async function getOrCreateWorkspace(ownerSessionId: string): Promise<Busi
     `SELECT payload FROM business_workspaces WHERE owner_session_id = $1`,
     [ownerSessionId],
   );
-  return created.rows[0]?.payload ?? workspace;
+  return normaliseWorkspace(created.rows[0]?.payload ?? workspace);
 }
