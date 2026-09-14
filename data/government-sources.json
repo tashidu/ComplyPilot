@@ -44,12 +44,18 @@
     "title": "Circular SEC/2025/E/06 — Risk-Based Refund Scheme",
     "category": "refund",
     "url": "https://www.ird.gov.lk/en/publications/Circulars_Circulars/SEC_2025_E_06_E.pdf",
-    "publicationDate": "2025-09-22",
+    "publicationDate": "2025-11-19",
     "effectiveFrom": "2025-10-01",
-    "lastVerifiedAt": "2026-09-05",
+    "lastVerifiedAt": "2026-09-14",
     "freshness": "reference",
     "legalWeight": "official-guidance",
-    "note": "Operational guidance for the scheme. Production rules still require professional review."
+    "note": "Operational guidance for the scheme. Production rules still require professional review.",
+    "verification": {
+      "verifiedOn": "2026-09-14",
+      "against": "IRD Circulars listing, which lists this circular as \"Risk Based Refund Scheme. Circular No. SEC/2025/E/06 [19.11.2025]\".",
+      "sourceUrl": "https://www.ird.gov.lk/en/publications/SitePages/Circulars.aspx?menuid=1704",
+      "correction": "publicationDate was 2025-09-22. That is the date of notice PN/SVAT/2025-01 (22.09.2025), not of this circular."
+    }
   },
   {
     "id": "IRD-VAT-RATES",
