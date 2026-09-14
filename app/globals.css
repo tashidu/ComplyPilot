@@ -2256,3 +2256,129 @@ td small {
     align-items: flex-start;
   }
 }
+
+/* ------------------------------------------------------------- rescue sim */
+
+.rescue-bridge {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 4px;
+}
+
+.rescue-bridge-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+}
+
+.rescue-bridge-side strong {
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.rescue-bridge-side.highlight {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.rescue-bridge-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.rescue-actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.rescue-action-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.rescue-action-row:has(input:checked) {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+
+.rescue-action-row input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  accent-color: var(--brand-strong);
+}
+
+.rescue-action-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.rescue-action-body span {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.rescue-action-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.rescue-sim-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.rescue-sim-foot .subtle {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .rescue-bridge {
+    flex-direction: column;
+  }
+
+  .rescue-bridge-arrow {
+    transform: rotate(90deg);
+  }
+
+  .rescue-action-row {
+    align-items: flex-start;
+  }
+
+  .rescue-action-meta {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .rescue-sim-foot {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

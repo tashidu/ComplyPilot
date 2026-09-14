@@ -127,18 +127,27 @@ export default function Page() {
     }
   }, [futureRules, resolved, showToast]);
 
-  const fixAll = useCallback(async () => {
-    if (!analyzeResult) return;
-    const allIds = analyzeResult.findings.map(f => f.id);
-    setResolved(allIds);
-    await fetchAnalysis(futureRules, allIds);
-    addAudit(
-      "human",
-      "What-if scenario completed",
-      "All applicable synthetic blockers were resolved. The package moved to approval-ready status."
-    );
-    showToast(`What-if complete: readiness updated`);
-  }, [analyzeResult, futureRules, fetchAnalysis, addAudit, showToast]);
+  // Applies the specific rescue actions a human selected and previewed in
+  // the Refund Rescue Simulator. Unlike the simulator's live preview (a pure
+  // /api/simulate read), this is the one explicit action that actually
+  // mutates the persisted case - it reuses the same real resolve path as a
+  // single-finding "Resolve" click, just for several findings at once.
+  const applyRescueActions = useCallback(
+    async (ids: string[]) => {
+      if (!analyzeResult || ids.length === 0) return;
+      const nextResolved = Array.from(new Set([...resolved, ...ids]));
+      setResolved(nextResolved);
+      const data = await fetchAnalysis(futureRules, nextResolved);
+      if (!data) return;
+      addAudit(
+        "human",
+        "Rescue actions applied",
+        `${ids.length} selected rescue action${ids.length === 1 ? "" : "s"} applied. Readiness recalculated to ${data.score.total}/100.`
+      );
+      showToast(`Applied ${ids.length} correction${ids.length === 1 ? "" : "s"}: readiness now ${data.score.total}/100`);
+    },
+    [analyzeResult, resolved, futureRules, fetchAnalysis, addAudit, showToast]
+  );
 
   const setProfile = useCallback(
     async (future: boolean) => {
@@ -397,7 +406,7 @@ export default function Page() {
               files={files}
               onAddFiles={addFiles}
               onToggleResolve={toggleResolve}
-              onFixAll={fixAll}
+              onApplyRescueActions={applyRescueActions}
               onOpenEvidence={openEvidence}
               onExportPassport={exportPassport}
               onOpenSmartFix={() => navigate("smart-fix")}

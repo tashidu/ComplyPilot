@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import type { AnalyzeResult } from "@/lib/types";
 import { formatLkr, SCORE_CONFIG, type ScoreKey } from "@/lib/demo";
-import { RescuePlanner, WorkflowTrace } from "./workflow-trace";
+import { WorkflowTrace } from "./workflow-trace";
+import { RescueSimulator } from "./rescue-simulator";
 
 type Props = {
   result: AnalyzeResult;
@@ -11,7 +12,7 @@ type Props = {
   files: number;
   onAddFiles: (files: FileList | null) => void;
   onToggleResolve: (id: string) => void;
-  onFixAll: () => void;
+  onApplyRescueActions: (ids: string[]) => Promise<void>;
   onOpenEvidence: (id: string) => void;
   onExportPassport: () => void;
   onOpenSmartFix: () => void;
@@ -23,7 +24,7 @@ export function OverviewView({
   files,
   onAddFiles,
   onToggleResolve,
-  onFixAll,
+  onApplyRescueActions,
   onOpenEvidence,
   onExportPassport,
   onOpenSmartFix,
@@ -47,9 +48,6 @@ export function OverviewView({
           <button className="button" onClick={onExportPassport}>
             Export Refund Passport
           </button>
-          <button className="button primary" onClick={onFixAll} disabled={ready}>
-            Run what-if: fix all
-          </button>
         </div>
       </div>
 
@@ -65,6 +63,12 @@ export function OverviewView({
         <ScoreCard result={result} score={score} ready={ready} open={openBlockers.length} futureRules={futureRules} />
         <UploadCard result={result} files={files} onAddFiles={onAddFiles} />
       </div>
+
+      <div className="section-head">
+        <h2>Refund Rescue Simulator</h2>
+        <span className="subtle">Actual vs. selected what-if</span>
+      </div>
+      <RescueSimulator result={result} onOpenEvidence={onOpenEvidence} onApplySelected={onApplyRescueActions} />
 
       <div className="section-head">
         <h2>Live VAT Schedule reconciliation</h2>
@@ -96,10 +100,7 @@ export function OverviewView({
         <h2>Pre-flight workflow</h2>
         <span className="subtle">Measured on this run</span>
       </div>
-      <div className="grid two">
-        <WorkflowTrace result={result} />
-        <RescuePlanner result={result} onOpenEvidence={onOpenEvidence} />
-      </div>
+      <WorkflowTrace result={result} />
 
       <div className="section-head">
         <h2>Agent workspace</h2>
