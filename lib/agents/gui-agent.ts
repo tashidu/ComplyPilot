@@ -43,6 +43,8 @@ export type SessionStatus = "awaiting_human" | "completed" | "failed";
 
 export type AgentSession = {
   id: string;
+  /** The demo session that started this filing run. Only it may continue it. */
+  ownerSessionId: string;
   browser: Browser;
   page: Page;
   data: FilingData;
@@ -344,7 +346,48 @@ async function runLoop(session: AgentSession): Promise<void> {
   session.error = `The agent stopped after ${MAX_STEPS} steps without reaching an acknowledgement.`;
 }
 
-export async function startFiling(portalUrl: string, data: FilingData): Promise<AgentSession> {
+/**
+ * A hard ceiling on concurrent browsers.
+ *
+ * Each filing run launches a real Chromium process of a few hundred megabytes.
+ * On the single hosted instance a handful of simultaneous runs is enough to
+ * exhaust memory and take the whole demo down, so the cap fails the request
+ * with a clear message instead.
+ */
+const MAX_CONCURRENT_BROWSERS = 2;
+
+/** No such filing session for this caller: unknown, expired, or someone else's. */
+export class UnknownFilingSessionError extends Error {
+  constructor() {
+    super("That filing session has expired. Start the agent again.");
+    this.name = "UnknownFilingSessionError";
+  }
+}
+
+export class AgentBusyError extends Error {
+  constructor() {
+    super("The filing agent is already running for another viewer. Try again shortly.");
+    this.name = "AgentBusyError";
+  }
+}
+
+function runningCount(): number {
+  let count = 0;
+  for (const session of sessions.values()) {
+    // A session still waiting for its OTP is holding an open browser.
+    if (session.status === "awaiting_human") count += 1;
+  }
+  return count;
+}
+
+export async function startFiling(
+  portalUrl: string,
+  data: FilingData,
+  ownerSessionId: string,
+): Promise<AgentSession> {
+  await reapExpiredSessions();
+  if (runningCount() >= MAX_CONCURRENT_BROWSERS) throw new AgentBusyError();
+
   await reapExpiredSessions();
 
   let browser: Browser;
@@ -373,6 +416,7 @@ export async function startFiling(portalUrl: string, data: FilingData): Promise<
     data,
     steps: [],
     status: "awaiting_human",
+    ownerSessionId,
     mode: process.env.DASHSCOPE_API_KEY ? "LIVE_QWEN" : "DEMO_FALLBACK",
     fallbackReason: process.env.DASHSCOPE_API_KEY
       ? null
@@ -398,9 +442,17 @@ export async function startFiling(portalUrl: string, data: FilingData): Promise<
 }
 
 /** Continues a paused session once the human has supplied the OTP. */
-export async function submitOtp(sessionId: string, code: string): Promise<AgentSession> {
+export async function submitOtp(
+  sessionId: string,
+  code: string,
+  ownerSessionId: string,
+): Promise<AgentSession> {
   const session = sessions.get(sessionId);
-  if (!session) throw new Error("That filing session has expired. Start the agent again.");
+  // A mismatched owner is reported exactly like an unknown id, so the response
+  // never confirms that someone else's filing session exists.
+  if (!session || session.ownerSessionId !== ownerSessionId) {
+    throw new UnknownFilingSessionError();
+  }
   if (session.status !== "awaiting_human") {
     throw new Error("That filing session is not waiting for a one-time password.");
   }

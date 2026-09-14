@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { governmentSources, refundRiskRules, vatInvoiceRulePack, vatRates, vatSchedules } from "@/lib/government-data";
 import { recallRun } from "@/lib/runs/run-store";
+import { getSession } from "@/lib/http/session";
 import type { AnalyzeResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -190,7 +191,9 @@ export async function POST(request: Request) {
     }
 
     const { runId, messages } = parsed.data;
-    const stored = recallRun(runId);
+    // Chat may only ever read a run belonging to this browser's session.
+    const session = await getSession();
+    const stored = recallRun(runId, session.id);
     if (!stored?.analysis) {
       return NextResponse.json({ error: "This analysis run expired. Refresh or reset the demo." }, { status: 404 });
     }

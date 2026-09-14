@@ -11,6 +11,11 @@ import type { AnalyzeResult } from "../types";
  *
  * In-memory and per-process, which is all the demo needs. A durable store
  * belongs here when the workflow becomes stateful.
+ *
+ * Runs are owned by the demo session that created them. The hosted prototype
+ * is a single process that several judges may use at once, and a run id alone
+ * is not a secret - recall therefore requires the owning session, so one
+ * viewer's extraction cannot be read from another's browser.
  */
 
 export type StoredRun = {
@@ -21,6 +26,8 @@ export type StoredRun = {
   scheduleEvidence: AnalyzeResult["scheduleEvidence"];
   /** Latest deterministic result used to ground the run-aware data copilot. */
   analysis: AnalyzeResult;
+  /** The demo session that created this run. Only it may recall the run. */
+  ownerSessionId: string;
   createdAt: number;
 };
 
@@ -37,9 +44,10 @@ function reap() {
   }
 }
 
-export function rememberRun(result: AnalyzeResult): void {
+export function rememberRun(result: AnalyzeResult, ownerSessionId: string): void {
   reap();
   runs.set(result.runId, {
+    ownerSessionId,
     runId: result.runId,
     extraction: result.invoice ?? null,
     mode: result.mode,
@@ -50,7 +58,17 @@ export function rememberRun(result: AnalyzeResult): void {
   });
 }
 
-export function recallRun(runId: string | null | undefined): StoredRun | undefined {
+/**
+ * Returns the run only to the session that created it. A mismatch is treated
+ * as "no such run" rather than an error, so the response does not confirm
+ * that someone else's run id exists.
+ */
+export function recallRun(
+  runId: string | null | undefined,
+  sessionId: string,
+): StoredRun | undefined {
   if (!runId) return undefined;
-  return runs.get(runId);
+  const run = runs.get(runId);
+  if (!run || run.ownerSessionId !== sessionId) return undefined;
+  return run;
 }

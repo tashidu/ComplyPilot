@@ -4,15 +4,46 @@ import { recallRun, rememberRun } from "@/lib/runs/run-store";
 import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
 import type { VatScheduleEvidence } from "@/lib/types";
 import { SUPPORTED_IMAGE_TYPES } from "@/lib/ai/qwen-client";
+import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
+
+// An upload can reach Model Studio on a paid quota, so a public URL needs a
+// ceiling. Generous enough that no one demonstrating the product will hit it.
+const ANALYZE_LIMIT = 40;
+const ANALYZE_WINDOW_MS = 10 * 60 * 1000;
+
+/** Findings a client may mark resolved. Anything else is rejected outright. */
+const KNOWN_BLOCKERS = new Set(["invoice", "supplier", "customs", "schedule"]);
+
+function parseResolvedBlockers(raw: unknown): string[] | null {
+  if (typeof raw !== "string" || raw.length === 0) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(parsed)) return null;
+  if (!parsed.every((id) => typeof id === "string" && KNOWN_BLOCKERS.has(id))) return null;
+  return parsed as string[];
+}
 
 function now() {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
 }
 
 export async function POST(req: Request) {
+  const session = await getSession();
+  const rate = consumeRate(`analyze:${session.id}`, ANALYZE_LIMIT, ANALYZE_WINDOW_MS);
+  if (!rate.allowed) {
+    return rateLimited(
+      rate.retryAfterSeconds,
+      "Too many analyses from this session. Wait a moment and try again.",
+    );
+  }
+
   try {
     const formData = await req.formData();
 
@@ -49,12 +80,19 @@ export async function POST(req: Request) {
     }
 
     const futureRules = formData.get("futureRules") === "true";
-    const resolvedBlockersStr = formData.get("resolvedBlockers") as string;
-    const resolvedBlockers = resolvedBlockersStr ? JSON.parse(resolvedBlockersStr) : [];
+    // Malformed or unknown ids are a client error, not a 500. Validating the
+    // list also stops an arbitrary id being marked resolved.
+    const resolvedBlockers = parseResolvedBlockers(formData.get("resolvedBlockers"));
+    if (resolvedBlockers === null) {
+      return NextResponse.json(
+        { error: "resolvedBlockers must be a JSON array of known finding ids." },
+        { status: 400 },
+      );
+    }
 
     // Continue an existing run when no new file is supplied, so a live
     // extraction is not replaced by fixtures on a rule-profile change.
-    const previous = recallRun(formData.get("runId") as string | null);
+    const previous = recallRun(formData.get("runId") as string | null, session.id);
     const result = await runOrchestrator(
       image,
       futureRules,
@@ -62,7 +100,7 @@ export async function POST(req: Request) {
       previous,
       scheduleUpload,
     );
-    rememberRun(result);
+    rememberRun(result, session.id);
 
     // Audit events must describe what actually happened, never what was intended.
     if (!image && !scheduleUpload && resolvedBlockers.length === 0) {
@@ -107,7 +145,7 @@ export async function POST(req: Request) {
       ];
     }
 
-    return NextResponse.json(result);
+    return withSession(result, session);
   } catch (error) {
     console.error("Error in /api/analyze", error);
     if (error instanceof ScheduleParseError) {

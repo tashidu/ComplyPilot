@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { serialise, startFiling, submitOtp, type FilingData } from "@/lib/agents/gui-agent";
+import {
+  AgentBusyError,
+  UnknownFilingSessionError,
+  serialise,
+  startFiling,
+  submitOtp,
+  type FilingData,
+} from "@/lib/agents/gui-agent";
+import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -13,14 +21,27 @@ const DEMO_CREDENTIALS: FilingData = {
   refund: "2350000.00",
 };
 
+// Each start launches a browser, so this ceiling is deliberately low.
+const FILE_LIMIT = 8;
+const FILE_WINDOW_MS = 10 * 60 * 1000;
+
 export async function POST(req: Request) {
+  const session = await getSession();
   try {
     const body = await req.json().catch(() => ({}));
 
     // Continue a paused session with the human-supplied one-time password.
     if (body.sessionId && body.otp) {
-      const session = await submitOtp(String(body.sessionId), String(body.otp));
-      return NextResponse.json(serialise(session));
+      const filing = await submitOtp(String(body.sessionId), String(body.otp), session.id);
+      return withSession(serialise(filing), session);
+    }
+
+    const rate = consumeRate(`file:${session.id}`, FILE_LIMIT, FILE_WINDOW_MS);
+    if (!rate.allowed) {
+      return rateLimited(
+        rate.retryAfterSeconds,
+        "The filing agent has run several times for this session. Wait a moment and try again.",
+      );
     }
 
     if (!body.approved) {
@@ -32,12 +53,31 @@ export async function POST(req: Request) {
 
     // The agent only ever drives this application's own mock portal.
     const portalUrl = new URL("/mock-portal", req.url).toString();
-    const session = await startFiling(portalUrl, { ...DEMO_CREDENTIALS, ...(body.data ?? {}) });
-    return NextResponse.json(serialise(session));
+    const filing = await startFiling(
+      portalUrl,
+      { ...DEMO_CREDENTIALS, ...(body.data ?? {}) },
+      session.id,
+    );
+    return withSession(serialise(filing), session);
   } catch (error) {
     console.error("Error in /api/file", error);
+    if (error instanceof UnknownFilingSessionError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof AgentBusyError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    // Setup problems are worth surfacing verbatim because they tell an operator
+    // exactly what to install. Everything else stays generic: raw messages here
+    // carry filesystem paths.
+    const detail = error instanceof Error ? error.message : "";
+    const isSetup = /playwright|chromium|executable/i.test(detail);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "The filing agent failed." },
+      {
+        error: isSetup
+          ? detail
+          : "The filing agent failed. The server log has the details.",
+      },
       { status: 500 },
     );
   }
