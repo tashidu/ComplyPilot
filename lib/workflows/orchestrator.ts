@@ -6,6 +6,13 @@ import { createRescuePlan } from "../agents/rescue-planner-agent";
 import { createSmartFixPlan } from "../agents/smart-fix-agent";
 import { selectInvoiceRuleProfile } from "../rules/rule-selection";
 import {
+  AGENT_PIPELINE,
+  PIPELINE_VERSION,
+  agentStage,
+  buildPipelineView,
+  type AgentId,
+} from "./pipeline";
+import {
   AnalyzeResult,
   DataMode,
   Finding,
@@ -41,16 +48,28 @@ const FIXTURE_TOTALS = {
   supplierSnapshotDate: "2025-11-18",
 };
 
+/** Who actually made the call at this stage, for the trace badge. */
+function decidedBy(agent: AgentId): TraceStage["decidedBy"] {
+  const kind = agentStage(agent).intelligence;
+  if (kind === "qwen") return "qwen";
+  if (kind === "human") return "human";
+  return "deterministic";
+}
+
 /** Times a stage and records it on the trace, so the UI shows real durations. */
 async function timed<T>(
   trace: TraceStage[],
   name: string,
   run: () => T | Promise<T>,
+  agent?: AgentId,
 ): Promise<T> {
   const started = performance.now();
+  const identity = agent
+    ? { agent, ordinal: agentStage(agent).ordinal, decidedBy: decidedBy(agent) }
+    : {};
   try {
     const value = await run();
-    trace.push({ name, status: "ok", ms: Math.round(performance.now() - started) });
+    trace.push({ name, status: "ok", ms: Math.round(performance.now() - started), ...identity });
     return value;
   } catch (error) {
     trace.push({
@@ -58,6 +77,7 @@ async function timed<T>(
       status: "failed",
       ms: Math.round(performance.now() - started),
       detail: error instanceof Error ? error.message : String(error),
+      ...identity,
     });
     throw error;
   }
@@ -83,6 +103,16 @@ export async function runOrchestrator(
   const reusablePrevious = previousDataMode === dataMode ? previous : undefined;
   let mode: AnalyzeResult["mode"] = "DEMO_FALLBACK";
   let fallbackReason: string | null = null;
+  // Stage 1 of the declared pipeline. Every extraction outcome - live, reused,
+  // fixture or unavailable - is reported under the same agent identity so the
+  // trace always shows seven stages.
+  const documentStage = {
+    name: agentStage("document").name,
+    agent: "document" as const,
+    ordinal: agentStage("document").ordinal,
+    decidedBy: "qwen" as const,
+  };
+
   let extraction = null;
   const scheduleEvidence = scheduleUpload ?? reusablePrevious?.scheduleEvidence ?? null;
 
@@ -92,7 +122,7 @@ export async function runOrchestrator(
       extraction = await extractInvoiceData(image.base64, image.mimeType);
       mode = "LIVE_QWEN";
       trace.push({
-        name: "Qwen extraction",
+        ...documentStage,
         status: "ok",
         ms: Math.round(performance.now() - started),
       });
@@ -102,7 +132,7 @@ export async function runOrchestrator(
       mode = "DEMO_FALLBACK";
       fallbackReason = error instanceof Error ? error.message : "Extraction failed.";
       trace.push({
-        name: "Qwen extraction",
+        ...documentStage,
         status: "failed",
         ms: Math.round(performance.now() - started),
         detail: fallbackReason,
@@ -116,7 +146,7 @@ export async function runOrchestrator(
     mode = reusablePrevious.mode;
     fallbackReason = reusablePrevious.fallbackReason;
     trace.push({
-      name: "Qwen extraction",
+      ...documentStage,
       status: "ok",
       ms: 0,
       detail: "Reused the extraction from this run.",
@@ -126,7 +156,7 @@ export async function runOrchestrator(
     mode = "DEMO_FALLBACK";
     fallbackReason = "The named synthetic Team Odin demo invoice is shown; Model Studio was not called.";
     trace.push({
-      name: "Qwen extraction",
+      ...documentStage,
       status: "waiting",
       ms: 0,
       detail: "Synthetic extraction fixture loaded; no Model Studio call occurred.",
@@ -135,7 +165,7 @@ export async function runOrchestrator(
     mode = "DEMO_FALLBACK";
     fallbackReason = "No usable extraction exists for this user-provided case.";
     trace.push({
-      name: "Qwen extraction",
+      ...documentStage,
       status: "waiting",
       ms: 0,
       detail: "User-provided case is waiting for a supported invoice image.",
@@ -146,8 +176,11 @@ export async function runOrchestrator(
     reusablePrevious?.runId ?? `RUN-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
 
   // 1. Document Compliance Agent
-  const docFinding = await timed(trace, "Document Compliance Agent", () =>
-    analyzeDocument(extraction, isFutureRules),
+  const docFinding = await timed(
+    trace,
+    "Temporal rule validation",
+    () => analyzeDocument(extraction, isFutureRules),
+    "temporal",
   );
 
   // Which rule pack the invoice's own date selects. The UI toggle is treated as
@@ -160,14 +193,20 @@ export async function runOrchestrator(
     isFutureRules ? "v2026.10" : "historical",
   );
   trace.push({
-    name: "Rule profile from document date",
+    name: agentStage("temporal").name,
     status: ruleSelection.overriddenFrom ? "waiting" : "ok",
     ms: 0,
     detail: ruleSelection.reason,
+    agent: "temporal",
+    ordinal: agentStage("temporal").ordinal,
+    decidedBy: "deterministic",
   });
 
-  const smartFix = await timed(trace, "AI Smart Fix Agent", () =>
-    createSmartFixPlan(extraction, isFutureRules),
+  const smartFix = await timed(
+    trace,
+    agentStage("smart-fix").name,
+    () => createSmartFixPlan(extraction, isFutureRules),
+    "smart-fix",
   );
   trace.at(-1)!.detail =
     smartFix.status === "NEEDS_REVIEW"
@@ -175,8 +214,11 @@ export async function runOrchestrator(
       : `Smart Fix status: ${smartFix.status}.`;
 
   // 2. Supplier & Reconciliation Agent
-  const reconciliation = await timed(trace, "AI Semantic Reconciliation Agent", () =>
-    analyzeReconciliation(extraction, scheduleEvidence, dataMode === "SYNTHETIC_DEMO"),
+  const reconciliation = await timed(
+    trace,
+    agentStage("reconciliation").name,
+    () => analyzeReconciliation(extraction, scheduleEvidence, dataMode === "SYNTHETIC_DEMO"),
+    "reconciliation",
   );
   trace.at(-1)!.detail =
     reconciliation.schedule.matchScore === null
@@ -209,6 +251,8 @@ export async function runOrchestrator(
   let executionId: string | null = null;
   let workflowFallbackReason: string | null = null;
   let muleRunAttempted = false;
+  /** What MuleRun reported per declared agent. Displayed, never authoritative. */
+  let muleRunStages: { agent?: string; status?: string; ms: number }[] = [];
 
   if (process.env.WORKFLOW_MODE === "mulerun") {
     muleRunAttempted = true;
@@ -219,6 +263,17 @@ export async function runOrchestrator(
       }
       const input: WorkflowInput = {
         runId,
+        // The remote workflow reports against these same seven agents, so the
+        // local and remote traces can be compared stage by stage.
+        pipeline: {
+          version: PIPELINE_VERSION,
+          agents: AGENT_PIPELINE.map(({ id, ordinal, name, role }) => ({
+            id,
+            ordinal,
+            name,
+            role,
+          })),
+        },
         ruleProfile: isFutureRules ? "v2026.10" : "historical",
         invoice: (extraction as Record<string, unknown> | null) ?? null,
         schedule: {
@@ -267,6 +322,7 @@ export async function runOrchestrator(
       const disagreements = compareMuleRunResult(allFindings, result);
       workflowMode = "LIVE_MULERUN";
       executionId = result.executionId;
+      muleRunStages = result.stages ?? [];
       trace.push({
         name: "MuleRun workflow",
         status: "ok",
@@ -299,8 +355,11 @@ export async function runOrchestrator(
     calculateReadiness(allFindings),
   );
   const claimValueUnderReviewLkr = calculateClaimValue(allFindings);
-  const rescuePlan = await timed(trace, "AI Refund Rescue Planner", () =>
-    createRescuePlan(allFindings, score),
+  const rescuePlan = await timed(
+    trace,
+    agentStage("rescue").name,
+    () => createRescuePlan(allFindings, score),
+    "rescue",
   );
   trace.at(-1)!.detail =
     rescuePlan.mode === "LIVE_QWEN"
@@ -310,7 +369,10 @@ export async function runOrchestrator(
   const openCount = allFindings.filter((finding) => finding.status === "open").length;
   const gate: WorkflowInfo["gate"] = openCount === 0 ? "READY_TO_FILE" : "NEEDS_HUMAN";
   trace.push({
-    name: "Human approval gate",
+    agent: "approval",
+    ordinal: agentStage("approval").ordinal,
+    decidedBy: "human",
+    name: agentStage("approval").name,
     status: gate === "READY_TO_FILE" ? "ok" : "waiting",
     ms: 0,
     detail:
@@ -318,6 +380,19 @@ export async function runOrchestrator(
         ? "All blockers resolved. Awaiting explicit human approval."
         : `${openCount} blocker${openCount === 1 ? "" : "s"} must be resolved by a human.`,
   });
+
+  // Stage 7 runs only when a human approves and files, which happens in a later
+  // request. Reported here as declared-but-not-reached rather than omitted.
+  const pipeline = buildPipelineView(
+    trace,
+    {
+    submission:
+      gate === "READY_TO_FILE"
+        ? "Ready. Seals the Evidence Passport, or files against the mock portal, once a human approves."
+        : "Blocked until the open findings are resolved and a human approves.",
+    },
+    muleRunStages,
+  );
 
   return {
     runId,
@@ -328,6 +403,7 @@ export async function runOrchestrator(
       executionId,
       fallbackReason: workflowMode === "LIVE_MULERUN" ? null : workflowFallbackReason,
       muleRunAttempted,
+      pipeline,
       trace,
       gate,
     },

@@ -48,11 +48,40 @@ export type Score = {
 };
 
 /** One stage of the pre-flight workflow, with the time it actually took. */
+import type { AgentId } from "./workflows/pipeline";
+
 export type TraceStage = {
   name: string;
-  status: "ok" | "waiting" | "failed";
+  /**
+   * "pending" means the stage is declared but this run never reached it -
+   * distinct from "ok" (ran and passed) and "failed" (ran and failed).
+   */
+  status: "ok" | "waiting" | "failed" | "pending";
   ms: number;
   detail?: string;
+  /** Which declared pipeline agent produced this stage, when it maps to one. */
+  agent?: AgentId;
+  /** 1-based position in the declared pipeline. */
+  ordinal?: number;
+  /** Who decided here: the model, the rules, or a person. */
+  decidedBy?: "qwen" | "deterministic" | "human";
+};
+
+/** One row of the declared seven-agent pipeline, always present in order. */
+export type PipelineStage = {
+  id: AgentId;
+  ordinal: number;
+  name: string;
+  role: string;
+  status: "ok" | "waiting" | "failed" | "pending";
+  ms: number;
+  detail?: string;
+  /**
+   * What the MuleRun workflow reported for this same agent, when one ran.
+   * Shown beside the local result; it never replaces it. A remote workflow
+   * cannot be allowed to decide a compliance outcome on its own say-so.
+   */
+  muleRun?: { status: string; ms: number } | null;
 };
 
 export type WorkflowInfo = {
@@ -66,6 +95,8 @@ export type WorkflowInfo = {
    *  "never configured" apart from "tried and failed". */
   muleRunAttempted: boolean;
   trace: TraceStage[];
+  /** The seven declared agents and what each one did on this run. */
+  pipeline: PipelineStage[];
   gate: "NEEDS_HUMAN" | "READY_TO_FILE";
 };
 
