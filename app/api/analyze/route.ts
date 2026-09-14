@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
-import { consumeRateLimit } from "@/lib/runs/rate-limit";
-import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+import { parseResolvedBlockers } from "@/lib/runs/resolved-blockers";
+import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
 import type { VatScheduleEvidence } from "@/lib/types";
 import { SUPPORTED_IMAGE_TYPES } from "@/lib/ai/qwen-client";
@@ -12,26 +11,26 @@ export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
-// This route reaches live Qwen extraction/embedding calls on a paid quota,
-// so a public URL must not let an unauthenticated burst exhaust it.
-const RATE_WINDOW_MS = 10 * 60 * 1000;
-const RATE_LIMIT = 20;
 
-const ResolvedBlockersSchema = z.array(z.string().min(1)).max(50);
+// An upload can reach Model Studio on a paid quota, so a public URL needs a
+// ceiling. Generous enough that no one demonstrating the product will hit it.
+const ANALYZE_LIMIT = 40;
+const ANALYZE_WINDOW_MS = 10 * 60 * 1000;
 
 function now() {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
 }
 
 export async function POST(req: Request) {
-  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
-  if (!consumeRateLimit(`analyze:${ownerSessionId}`, RATE_LIMIT, RATE_WINDOW_MS)) {
-    return withSessionCookie(
-      NextResponse.json({ error: "Demo upload limit reached. Try again in a few minutes." }, { status: 429 }),
-      ownerSessionId,
-      isNew,
+  const session = await getSession();
+  const rate = consumeRate(`analyze:${session.id}`, ANALYZE_LIMIT, ANALYZE_WINDOW_MS);
+  if (!rate.allowed) {
+    return rateLimited(
+      rate.retryAfterSeconds,
+      "Too many analyses from this session. Wait a moment and try again.",
     );
   }
+
   try {
     const formData = await req.formData();
 
@@ -68,28 +67,19 @@ export async function POST(req: Request) {
     }
 
     const futureRules = formData.get("futureRules") === "true";
-    const resolvedBlockersStr = formData.get("resolvedBlockers") as string | null;
-    let resolvedBlockers: string[] = [];
-    if (resolvedBlockersStr) {
-      let parsedBlockers: unknown;
-      try {
-        parsedBlockers = JSON.parse(resolvedBlockersStr);
-      } catch {
-        return NextResponse.json({ error: "resolvedBlockers must be valid JSON." }, { status: 400 });
-      }
-      const validated = ResolvedBlockersSchema.safeParse(parsedBlockers);
-      if (!validated.success) {
-        return NextResponse.json(
-          { error: "resolvedBlockers must be an array of finding ids." },
-          { status: 400 },
-        );
-      }
-      resolvedBlockers = validated.data;
+    // Malformed or unknown ids are a client error, not a 500. Validating the
+    // list also stops an arbitrary id being marked resolved.
+    const resolvedBlockers = parseResolvedBlockers(formData.get("resolvedBlockers"));
+    if (resolvedBlockers === null) {
+      return NextResponse.json(
+        { error: "resolvedBlockers must be a JSON array of known finding ids." },
+        { status: 400 },
+      );
     }
 
     // Continue an existing run when no new file is supplied, so a live
     // extraction is not replaced by fixtures on a rule-profile change.
-    const previous = await recallRun(formData.get("runId") as string | null, ownerSessionId);
+    const previous = await recallRun(formData.get("runId") as string | null, session.id);
     const result = await runOrchestrator(
       image,
       futureRules,
@@ -97,7 +87,7 @@ export async function POST(req: Request) {
       previous,
       scheduleUpload,
     );
-    await rememberRun(result, ownerSessionId);
+    await rememberRun(result, session.id);
 
     // Audit events must describe what actually happened, never what was intended.
     if (!image && !scheduleUpload && resolvedBlockers.length === 0) {
@@ -142,7 +132,7 @@ export async function POST(req: Request) {
       ];
     }
 
-    return withSessionCookie(NextResponse.json(result), ownerSessionId, isNew);
+    return withSession(result, session);
   } catch (error) {
     console.error("Error in /api/analyze", error);
     if (error instanceof ScheduleParseError) {

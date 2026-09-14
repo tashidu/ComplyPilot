@@ -371,12 +371,20 @@ function formatScheduleAmount(value: number | null) {
 
 function ScheduleReconciliationCard({ result }: { result: AnalyzeResult }) {
   const reconciliation = result.scheduleReconciliation;
-  const status = {
+  // Typed as a total Record so adding a status to the union fails the build
+  // here rather than rendering an empty badge.
+  const STATUS_LABELS: Record<
+    AnalyzeResult["scheduleReconciliation"]["status"],
+    { label: string; tag: string }
+  > = {
     NOT_UPLOADED: { label: "Awaiting CSV", tag: "" },
     NEEDS_INVOICE: { label: "Invoice required", tag: "warn" },
     MATCHED: { label: "Matched", tag: "ok" },
+    NEEDS_REVIEW: { label: "Needs human review", tag: "warn" },
     MISMATCH: { label: "Review differences", tag: "alert" },
-  }[reconciliation.status];
+    UNMATCHED: { label: "No matching row", tag: "alert" },
+  };
+  const status = STATUS_LABELS[reconciliation.status];
 
   return (
     <article className="card pad schedule-card">

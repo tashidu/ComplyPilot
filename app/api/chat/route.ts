@@ -3,8 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { governmentSources, refundRiskRules, vatInvoiceRulePack, vatRates, vatSchedules } from "@/lib/government-data";
 import { recallRun } from "@/lib/runs/run-store";
-import { consumeRateLimit } from "@/lib/runs/rate-limit";
-import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 import type { AnalyzeResult } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -168,7 +167,7 @@ function fallbackAnswer(question: string, analysis: AnalyzeResult): string {
 }
 
 export async function POST(request: Request) {
-  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
+  const session = await getSession();
   try {
     const parsed = ChatRequestSchema.safeParse(await request.json());
     if (!parsed.success) {
@@ -176,12 +175,14 @@ export async function POST(request: Request) {
     }
 
     const { runId, messages } = parsed.data;
-    const stored = await recallRun(runId, ownerSessionId);
+    // Chat may only ever read a run belonging to this browser's session.
+    const stored = await recallRun(runId, session.id);
     if (!stored?.analysis) {
       return NextResponse.json({ error: "This analysis run expired. Refresh or reset the demo." }, { status: 404 });
     }
-    if (!consumeRateLimit(`chat:${runId}`, RATE_LIMIT, RATE_WINDOW_MS)) {
-      return NextResponse.json({ error: "Demo chat limit reached. Try again in ten minutes." }, { status: 429 });
+    const rate = consumeRate(`chat:${runId}`, RATE_LIMIT, RATE_WINDOW_MS);
+    if (!rate.allowed) {
+      return rateLimited(rate.retryAfterSeconds, "Demo chat limit reached. Try again in ten minutes.");
     }
 
     const question = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
@@ -189,15 +190,14 @@ export async function POST(request: Request) {
     const apiKey = process.env.DASHSCOPE_API_KEY;
 
     if (!apiKey) {
-      return withSessionCookie(
-        NextResponse.json({
+      return withSession(
+        {
           answer: fallbackAnswer(question, stored.analysis),
           mode: "DEMO_FALLBACK",
           fallbackReason: "DASHSCOPE_API_KEY is not set, so a deterministic grounded answer was used.",
           sources,
-        }),
-        ownerSessionId,
-        isNew,
+        },
+        session,
       );
     }
 
@@ -220,27 +220,25 @@ export async function POST(request: Request) {
       const answer = response.choices[0]?.message?.content?.trim();
       if (!answer) throw new Error("empty response");
 
-      return withSessionCookie(
-        NextResponse.json({
+      return withSession(
+        {
           answer: answer.slice(0, 3_000),
           mode: "LIVE_QWEN",
           fallbackReason: null,
           sources,
-        }),
-        ownerSessionId,
-        isNew,
+        },
+        session,
       );
     } catch (error) {
       console.error("Qwen chat failed; using grounded fallback", error);
-      return withSessionCookie(
-        NextResponse.json({
+      return withSession(
+        {
           answer: fallbackAnswer(question, stored.analysis),
           mode: "DEMO_FALLBACK",
           fallbackReason: "Model Studio was unavailable, so a deterministic grounded answer was used.",
           sources,
-        }),
-        ownerSessionId,
-        isNew,
+        },
+        session,
       );
     }
   } catch (error) {

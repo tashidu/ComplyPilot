@@ -21,6 +21,20 @@ const TIMEOUT_MS = 30_000;
 const FieldValue = z.union([z.string(), z.number(), z.null()]);
 
 export const WorkflowInputSchema = z.object({
+  /** The declared seven-agent pipeline this run expects the workflow to execute. */
+  pipeline: z
+    .object({
+      version: z.string(),
+      agents: z.array(
+        z.object({
+          id: z.string(),
+          ordinal: z.number(),
+          name: z.string(),
+          role: z.string(),
+        }),
+      ),
+    })
+    .optional(),
   runId: z.string(),
   ruleProfile: z.string(),
   invoice: z.record(z.string(), z.unknown()).nullable(),
@@ -71,6 +85,12 @@ export const WorkflowInputSchema = z.object({
 
 export type WorkflowInput = z.infer<typeof WorkflowInputSchema>;
 
+/** The declared pipeline, sent so MuleRun reports against the same seven agents. */
+export type WorkflowPipelineInput = {
+  version: string;
+  agents: { id: string; ordinal: number; name: string; role: string }[];
+};
+
 /** What a MuleRun execution must return for this app to trust it. */
 export const WorkflowResultSchema = z.object({
   executionId: z.string().min(1),
@@ -104,7 +124,26 @@ export const WorkflowResultSchema = z.object({
     )
     .optional(),
   stages: z
-    .array(z.object({ name: z.string(), ms: z.number(), status: z.string().optional() }))
+    .array(
+      z.object({
+        name: z.string(),
+        ms: z.number(),
+        status: z.string().optional(),
+        /** Which declared pipeline agent this stage ran, when the workflow says so. */
+        agent: z
+          .enum([
+            "document",
+            "temporal",
+            "smart-fix",
+            "reconciliation",
+            "rescue",
+            "approval",
+            "submission",
+          ])
+          .optional(),
+        detail: z.string().optional(),
+      }),
+    )
     .optional(),
 });
 

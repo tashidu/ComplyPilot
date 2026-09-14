@@ -2,32 +2,33 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { runOrchestrator } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
-import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+import { getSession, withSession } from "@/lib/http/session";
+import { KNOWN_BLOCKER_IDS, ResolvedBlockersSchema } from "@/lib/runs/resolved-blockers";
 
 export const runtime = "nodejs";
 
 const ResolveRequestSchema = z.object({
-  findingId: z.string().min(1),
-  resolvedBlockers: z.array(z.string().min(1)).max(50).optional().default([]),
+  findingId: z.enum(KNOWN_BLOCKER_IDS),
+  resolvedBlockers: ResolvedBlockersSchema.optional().default([]),
   futureRules: z.boolean().optional().default(false),
   runId: z.string().min(1).max(120).nullable().optional(),
 });
 
 export async function POST(req: Request) {
-  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
+  const session = await getSession();
   try {
     const body = await req.json().catch(() => null);
     const parsed = ResolveRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Send a findingId and, optionally, resolvedBlockers, futureRules and runId." },
+        { error: "Send a known findingId and, optionally, resolvedBlockers, futureRules and runId." },
         { status: 400 },
       );
     }
     const { findingId, resolvedBlockers, futureRules, runId } = parsed.data;
 
     const currentResolved = new Set<string>(resolvedBlockers);
-    
+
     // Toggle the findingId
     if (currentResolved.has(findingId)) {
       currentResolved.delete(findingId);
@@ -39,9 +40,9 @@ export async function POST(req: Request) {
 
     // Re-run the deterministic checks against whatever this run extracted,
     // without making another AI call.
-    const previous = await recallRun(runId, ownerSessionId);
+    const previous = await recallRun(runId, session.id);
     const result = await runOrchestrator(null, futureRules, nextResolved, previous);
-    await rememberRun(result, ownerSessionId);
+    await rememberRun(result, session.id);
 
     // Prepare audit event
     const action = currentResolved.has(findingId) ? "resolved" : "reopened";
@@ -54,7 +55,7 @@ export async function POST(req: Request) {
       }
     ];
 
-    return withSessionCookie(NextResponse.json(result), ownerSessionId, isNew);
+    return withSession(result, session);
   } catch (error) {
     console.error("Error in /api/resolve", error);
     return NextResponse.json(

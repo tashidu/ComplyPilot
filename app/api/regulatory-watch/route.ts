@@ -5,7 +5,7 @@ import {
   rejectChange,
   resetWatch,
 } from "@/lib/agents/regulatory-watch";
-import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+import { getSession, withSession } from "@/lib/http/session";
 
 export const runtime = "nodejs";
 
@@ -13,23 +13,19 @@ export const runtime = "nodejs";
  * Each browser gets its own demo session, so two judges viewing the hosted
  * prototype at the same time do not share one pending rule change.
  */
-function withSession(body: unknown, id: string, isNew: boolean) {
-  return withSessionCookie(NextResponse.json(body), id, isNew);
-}
-
 export async function GET() {
-  const { id, isNew } = await getOrCreateSessionId();
-  return withSession({ simulated: true, state: getWatchState(id) }, id, isNew);
+  const session = await getSession();
+  return withSession({ simulated: true, state: getWatchState(session.id) }, session);
 }
 
 export async function POST(req: Request) {
-  const { id, isNew } = await getOrCreateSessionId();
+  const session = await getSession();
   try {
     const body = await req.json().catch(() => ({}));
     const reviewer = String(body.reviewer ?? "").trim();
 
     if (body.action === "reset") {
-      return withSession({ simulated: true, state: resetWatch(id), event: null }, id, isNew);
+      return withSession({ simulated: true, state: resetWatch(session.id), event: null }, session);
     }
 
     // A rule pack never activates without a named human accepting it.
@@ -41,12 +37,12 @@ export async function POST(req: Request) {
     }
 
     if (body.action === "approve") {
-      const { state, event } = approveChange(id, reviewer);
-      return withSession({ simulated: true, state, event }, id, isNew);
+      const { state, event } = approveChange(session.id, reviewer);
+      return withSession({ simulated: true, state, event }, session);
     }
     if (body.action === "reject") {
-      const { state, event } = rejectChange(id, reviewer);
-      return withSession({ simulated: true, state, event }, id, isNew);
+      const { state, event } = rejectChange(session.id, reviewer);
+      return withSession({ simulated: true, state, event }, session);
     }
 
     return NextResponse.json({ error: "Unknown action." }, { status: 400 });

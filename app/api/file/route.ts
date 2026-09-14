@@ -6,7 +6,7 @@ import {
   submitOtp,
   type FilingData,
 } from "@/lib/agents/gui-agent";
-import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
+import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -20,15 +20,27 @@ const DEMO_CREDENTIALS: FilingData = {
   refund: "2350000.00",
 };
 
+// Each start launches a browser, so this ceiling is deliberately low.
+const FILE_LIMIT = 8;
+const FILE_WINDOW_MS = 10 * 60 * 1000;
+
 export async function POST(req: Request) {
-  const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
+  const session = await getSession();
   try {
     const body = await req.json().catch(() => ({}));
 
     // Continue a paused session with the human-supplied one-time password.
     if (body.sessionId && body.otp) {
-      const session = await submitOtp(String(body.sessionId), String(body.otp), ownerSessionId);
-      return withSessionCookie(NextResponse.json(serialise(session)), ownerSessionId, isNew);
+      const filing = await submitOtp(String(body.sessionId), String(body.otp), session.id);
+      return withSession(serialise(filing), session);
+    }
+
+    const rate = consumeRate(`file:${session.id}`, FILE_LIMIT, FILE_WINDOW_MS);
+    if (!rate.allowed) {
+      return rateLimited(
+        rate.retryAfterSeconds,
+        "The filing agent has run several times for this session. Wait a moment and try again.",
+      );
     }
 
     if (!body.approved) {
@@ -40,12 +52,12 @@ export async function POST(req: Request) {
 
     // The agent only ever drives this application's own mock portal.
     const portalUrl = new URL("/mock-portal", req.url).toString();
-    const session = await startFiling(
+    const filing = await startFiling(
       portalUrl,
       { ...DEMO_CREDENTIALS, ...(body.data ?? {}) },
-      ownerSessionId,
+      session.id,
     );
-    return withSessionCookie(NextResponse.json(serialise(session)), ownerSessionId, isNew);
+    return withSession(serialise(filing), session);
   } catch (error) {
     console.error("Error in /api/file", error);
     // Only deliberately-written, safe agent errors are ever shown to the
