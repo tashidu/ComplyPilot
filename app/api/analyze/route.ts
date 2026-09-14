@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runOrchestrator, type UploadedImage } from "@/lib/workflows/orchestrator";
 import { recallRun, rememberRun } from "@/lib/runs/run-store";
+import { consumeRateLimit } from "@/lib/runs/rate-limit";
 import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 import { parseVatScheduleCsv, ScheduleParseError } from "@/lib/evidence/schedule-parser";
 import type { VatScheduleEvidence } from "@/lib/types";
@@ -10,6 +11,10 @@ export const runtime = "nodejs";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MAX_CSV_BYTES = 2 * 1024 * 1024; // 2 MB
+// This route reaches live Qwen extraction/embedding calls on a paid quota,
+// so a public URL must not let an unauthenticated burst exhaust it.
+const RATE_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT = 20;
 
 function now() {
   return new Date().toLocaleTimeString("en-GB", { hour12: false });
@@ -17,6 +22,13 @@ function now() {
 
 export async function POST(req: Request) {
   const { id: ownerSessionId, isNew } = await getOrCreateSessionId();
+  if (!consumeRateLimit(`analyze:${ownerSessionId}`, RATE_LIMIT, RATE_WINDOW_MS)) {
+    return withSessionCookie(
+      NextResponse.json({ error: "Demo upload limit reached. Try again in a few minutes." }, { status: 429 }),
+      ownerSessionId,
+      isNew,
+    );
+  }
   try {
     const formData = await req.formData();
 

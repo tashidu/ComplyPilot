@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 import { governmentSources, refundRiskRules, vatInvoiceRulePack, vatRates, vatSchedules } from "@/lib/government-data";
 import { recallRun } from "@/lib/runs/run-store";
+import { consumeRateLimit } from "@/lib/runs/rate-limit";
 import { getOrCreateSessionId, withSessionCookie } from "@/lib/runs/session";
 import type { AnalyzeResult } from "@/lib/types";
 
@@ -27,23 +28,6 @@ const ChatRequestSchema = z.object({
 
 type ChatMessage = z.infer<typeof ChatRequestSchema>["messages"][number];
 type ChatSource = { id: string; title: string; url: string };
-
-const rateStore = globalThis as unknown as {
-  __complypilotChatRates?: Map<string, { startedAt: number; count: number }>;
-};
-rateStore.__complypilotChatRates ??= new Map();
-
-function consumeRate(runId: string): boolean {
-  const now = Date.now();
-  const current = rateStore.__complypilotChatRates!.get(runId);
-  if (!current || now - current.startedAt > RATE_WINDOW_MS) {
-    rateStore.__complypilotChatRates!.set(runId, { startedAt: now, count: 1 });
-    return true;
-  }
-  if (current.count >= RATE_LIMIT) return false;
-  current.count += 1;
-  return true;
-}
 
 function selectSources(question: string): ChatSource[] {
   const value = question.toLowerCase();
@@ -196,7 +180,7 @@ export async function POST(request: Request) {
     if (!stored?.analysis) {
       return NextResponse.json({ error: "This analysis run expired. Refresh or reset the demo." }, { status: 404 });
     }
-    if (!consumeRate(runId)) {
+    if (!consumeRateLimit(`chat:${runId}`, RATE_LIMIT, RATE_WINDOW_MS)) {
       return NextResponse.json({ error: "Demo chat limit reached. Try again in ten minutes." }, { status: 429 });
     }
 
