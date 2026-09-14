@@ -24,3 +24,8 @@ Thumbs.db
 # Python cache
 __pycache__/
 *.pyc
+
+# IRD reference downloads. Kept locally for reference, never redistributed:
+# the Schedule File Verifier is the Department's software, not ours, and a
+# public repo is not the place for its binaries.
+doc/
