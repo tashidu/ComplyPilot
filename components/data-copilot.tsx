@@ -191,7 +191,7 @@ export function DataCopilot({
                       className={`copilot-mode ${message.mode === "LIVE_MODEL" ? "live" : "fallback"}`}
                       title={message.fallbackReason ?? undefined}
                     >
-                      {message.mode === "LIVE_MODEL" ? message.model ?? "Live model" : "Demo fallback"}
+                      {message.mode === "LIVE_MODEL" ? "Live model" : "Demo fallback"}
                     </span>
                   ) : null}
                 </div>

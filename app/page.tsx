@@ -257,7 +257,18 @@ export default function Page() {
           ? nextWorkspace.tasks.filter((task) => task.periodId === period.id && task.status === "COMPLETED").map((task) => task.findingId)
           : [];
         runIdRef.current = period?.runId ?? null;
-        await fetchAnalysis(true, completedFindingIds, undefined, dataModeRef.current, period?.id);
+        // fetchAnalysis reports its own failures and resolves to null rather
+        // than throwing, so the catch below never sees one. Without this check
+        // a failed first analysis left the app on "Opening your VAT workspace"
+        // for good: no message, and no Retry, because that button only appears
+        // once an error has been recorded.
+        const analysis = await fetchAnalysis(true, completedFindingIds, undefined, dataModeRef.current, period?.id);
+        if (cancelled) return;
+        if (!analysis) {
+          setWorkspaceError(
+            "Your business data loaded, but the first analysis did not complete, so the workspace could not open. Retry, or check that the analysis service is reachable.",
+          );
+        }
       } catch (error) {
         if (cancelled) return;
         console.error(error);
@@ -755,9 +766,7 @@ export default function Page() {
           </button>
           <div className="topbar-title"><strong>{activeProfile.displayName}</strong><span>{activePeriod.label} · {activePeriod.status.replaceAll("_", " ")}</span></div>
           <div className="topbar-actions">
-            <span className={`pill ${analyzeResult.dataMode === "USER_PROVIDED" ? "live" : "fallback"}`}><i className="dot" />{analyzeResult.dataMode === "USER_PROVIDED" ? "USER DATA" : "SYNTHETIC DEMO"}</span>
-            <span className={`pill ${analyzeResult.mode === "LIVE_QWEN" ? "live" : "fallback"}`} title={analyzeResult.fallbackReason ?? "Fields were extracted by Alibaba Cloud Model Studio for this run."}><i className="dot" />AI: {analyzeResult.mode === "LIVE_QWEN" ? "LIVE QWEN" : "DEMO FALLBACK"}</span>
-            <span className={`pill ${analyzeResult.workflow.mode === "LIVE_MULERUN" ? "live" : "fallback"}`} title={analyzeResult.workflow.fallbackReason ?? `MuleRun execution ${analyzeResult.workflow.executionId ?? ""}`}><i className="dot" />Workflow: {analyzeResult.workflow.mode === "LIVE_MULERUN" ? "LIVE MULERUN" : analyzeResult.workflow.muleRunAttempted ? "LOCAL FALLBACK" : "LOCAL"}</span>
+
             <ThemeToggle />
             <button className="account-chip" onClick={() => navigate("account")} title={authUser ? authUser.email : "Guest demo session"}><span>{authUser ? authUser.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() : "G"}</span>{authUser ? authUser.fullName.split(" ")[0] : "Guest"}</button>
             <button className="button" onClick={() => void resetAnalysis()}>Reset analysis</button>
