@@ -207,6 +207,12 @@ export function SmartFixView({
           <div className="grid two">
             <article className="card pad">
               <div className="card-head">
+                <div className="card-head-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5.5 2.8h6.2L16 7v10.2a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V3.8a1 1 0 0 1 1-1Z" />
+                    <path d="M11.5 2.8V7H16" />
+                  </svg>
+                </div>
                 <div>
                   <h2>Original extraction</h2>
                   <p>As read from the uploaded document</p>
@@ -234,6 +240,12 @@ export function SmartFixView({
 
             <article className="card pad">
               <div className="card-head">
+                <div className="card-head-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14.8 3 16 4.2 5.5 14.7l-2.3.6.6-2.3Z" />
+                    <path d="M4 3v2.4M3 4.2h2M16 15v2.4M15 16.2h2" />
+                  </svg>
+                </div>
                 <div>
                   <h2>AI-corrected draft</h2>
                   <p>Highlighted rows differ from the original extraction</p>

@@ -3,8 +3,16 @@
 import { useRef, useState } from "react";
 import type { AnalyzeResult } from "@/lib/types";
 import { formatLkr, SCORE_CONFIG, type ScoreKey } from "@/lib/demo";
-import { WorkflowTrace } from "./workflow-trace";
 import { RescueSimulator } from "./rescue-simulator";
+
+/** The same red/amber/green read used everywhere a 0-100-ish ratio needs a
+ * status colour: the overall ring, and each composition meter against its
+ * own max. Never a fixed accent - the colour always means the value. */
+function toneFor(ratioPercent: number): { text: string; solid: string } {
+  if (ratioPercent < 60) return { text: "var(--red)", solid: "var(--red-solid)" };
+  if (ratioPercent < 90) return { text: "var(--amber)", solid: "var(--amber-solid)" };
+  return { text: "var(--green)", solid: "var(--green-solid)" };
+}
 
 type Props = {
   result: AnalyzeResult;
@@ -65,6 +73,32 @@ export function OverviewView({
       </div>
 
       <div className="section-head">
+        <h2>Score composition</h2>
+        <span className="tag brand">Formula v1.0</span>
+      </div>
+      <article className="card pad">
+        <div className="breakdown">
+          {(Object.keys(SCORE_CONFIG) as ScoreKey[]).map((key) => {
+            const value = components[key as keyof typeof components];
+            const max = SCORE_CONFIG[key].max;
+            const ratio = (value / max) * 100;
+            const tone = toneFor(ratio);
+            return (
+              <div className="breakdown-row" key={key}>
+                <span>{SCORE_CONFIG[key].label}</span>
+                <div className="bar">
+                  <i style={{ "--width": `${ratio}%`, "--tone": tone.solid } as React.CSSProperties} />
+                </div>
+                <strong className="mono">
+                  {value}/{max}
+                </strong>
+              </div>
+            );
+          })}
+        </div>
+      </article>
+
+      <div className="section-head">
         <h2>Refund Rescue Simulator</h2>
         <span className="subtle">Actual vs. selected what-if</span>
       </div>
@@ -97,12 +131,6 @@ export function OverviewView({
       </div>
 
       <div className="section-head">
-        <h2>Pre-flight workflow</h2>
-        <span className="subtle">Measured on this run</span>
-      </div>
-      <WorkflowTrace result={result} />
-
-      <div className="section-head">
         <h2>Agent workspace</h2>
         <span className="subtle">Three specialist agents</span>
       </div>
@@ -112,8 +140,8 @@ export function OverviewView({
           name="Document Compliance"
           meta="Schema-validated invoice fields"
           copy="Extracts invoice fields, validates calculations and applies the selected rule pack."
-          accent="var(--brand)"
-          accentSoft="var(--brand-soft)"
+          accent="var(--primary-solid)"
+          accentSoft="var(--primary-c)"
           progress={result.findings.find(f => f.id === "invoice")?.status === "open" ? 82 : 100}
           done={result.findings.find(f => f.id === "invoice")?.status !== "open"}
         />
@@ -122,8 +150,8 @@ export function OverviewView({
           name="Supplier & Reconciliation"
           meta="Schedule · CUSDEC · Supplier"
           copy="Matches documents, checks source freshness and explains every unmatched value."
-          accent="var(--mint)"
-          accentSoft="var(--mint-soft)"
+          accent="var(--green-solid)"
+          accentSoft="var(--green-c)"
           progress={
             result.findings.find(f => f.id === "supplier")?.status === "resolved" && result.findings.find(f => f.id === "customs")?.status === "resolved" ? 100 : 87
           }
@@ -134,15 +162,15 @@ export function OverviewView({
           name="Refund Readiness"
           meta="Score · clock · action plan"
           copy="Combines verified evidence through a deterministic score and approval workflow."
-          accent="var(--amber)"
-          accentSoft="var(--amber-soft)"
+          accent="var(--amber-solid)"
+          accentSoft="var(--amber-c)"
           progress={score}
           done={ready}
           blockedLabel="Blocked"
         />
       </div>
 
-      <div className="section-head">
+      <div className="section-head" id="priority-blockers">
         <h2>Priority blockers</h2>
         <button className="button small" onClick={() => onOpenEvidence(openBlockers[0]?.id ?? "supplier")}>
           Open evidence graph
@@ -212,33 +240,39 @@ export function OverviewView({
           );
         })}
       </div>
-
-      <div className="section-head">
-        <h2>Readiness score breakdown</h2>
-        <span className="tag brand">Formula v1.0</span>
-      </div>
-      <article className="card pad">
-        <div className="breakdown">
-          {(Object.keys(SCORE_CONFIG) as ScoreKey[]).map((key) => (
-            <div className="breakdown-row" key={key}>
-              <span>{SCORE_CONFIG[key].label}</span>
-              <div className="bar">
-                <i
-                  style={
-                    {
-                      "--width": `${(components[key as keyof typeof components] / SCORE_CONFIG[key].max) * 100}%`,
-                    } as React.CSSProperties
-                  }
-                />
-              </div>
-              <strong>
-                {components[key as keyof typeof components]}/{SCORE_CONFIG[key].max}
-              </strong>
-            </div>
-          ))}
-        </div>
-      </article>
     </>
+  );
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const size = 152;
+  const stroke = 13;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.min(100, Math.max(0, score)) / 100);
+  const tone = toneFor(score);
+  return (
+    <div className="score-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--track)" strokeWidth={stroke} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={tone.solid}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </svg>
+      <div className="score-ring-value">
+        <strong className="mono">{score}</strong>
+        <span>out of 100</span>
+      </div>
+    </div>
   );
 }
 
@@ -258,42 +292,39 @@ function ScoreCard({
   return (
     <article className="score-card">
       <div className="score-top">
-        <div className="ring" style={{ "--score": score } as React.CSSProperties}>
-          <div className="ring-value">
-            <strong>{score}</strong>
-            <span>out of 100</span>
-          </div>
-        </div>
+        <ScoreRing score={score} />
         <div className="score-copy">
           <span className="kicker">Refund readiness</span>
-          <h2>{ready ? "Approval ready" : "Attention required"}</h2>
+          <span className={`status-chip ${ready ? "ready" : "attention"}`}>
+            {ready ? "Approval ready" : "Attention required"}
+          </span>
+          <h2>{ready ? "Every blocker is resolved" : `${open} evidence blocker${open === 1 ? "" : "s"} need attention`}</h2>
           <p>
             {ready
-              ? "All current blockers are resolved. The package can move to an authorised human reviewer."
-              : `${open} evidence blocker${open === 1 ? "" : "s"} should be resolved before this package moves to human approval.`}
+              ? "The package can move to an authorised human reviewer."
+              : "Resolve these before this package moves to human approval."}
           </p>
           <div className="chip-row">
-            <span className={`chip ${ready ? "ready" : "attention"}`}>
-              {open} blocker{open === 1 ? "" : "s"} open
-            </span>
-            <span className="chip">
-              Rule pack {futureRules ? "v2026.10" : "historical"}
-            </span>
-            <span className="chip">Score formula visible</span>
+            <span className="chip">Rule pack {futureRules ? "v2026.10" : "historical"}</span>
           </div>
+          {!ready ? (
+            <a className="score-cta" href="#priority-blockers">
+              Review priority blockers ↓
+            </a>
+          ) : null}
         </div>
       </div>
       <div className="score-metrics">
         <div>
-          <strong>{formatLkr(result.claimValueUnderReviewLkr)}</strong>
+          <strong className="mono">{formatLkr(result.claimValueUnderReviewLkr)}</strong>
           <span>Claim value under review</span>
         </div>
         <div>
-          <strong>{open}</strong>
+          <strong className="mono">{open}</strong>
           <span>Unresolved blockers</span>
         </div>
         <div>
-          <strong>{ready ? "READY" : "NOT READY"}</strong>
+          <strong>{ready ? "Ready to start" : "Clock not started"}</strong>
           <span>45-day clock status</span>
         </div>
       </div>
@@ -316,6 +347,12 @@ function UploadCard({
   return (
     <article className="card pad upload">
       <div className="card-head">
+        <div className="card-head-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13V3M10 3l-4 4M10 3l4 4" />
+            <path d="M3 14v1.5A1.5 1.5 0 0 0 4.5 17h11a1.5 1.5 0 0 0 1.5-1.5V14" />
+          </svg>
+        </div>
         <div>
           <h2>Add evidence</h2>
           <p>One invoice image plus one VAT Schedule CSV per analysis run</p>
@@ -397,6 +434,12 @@ function ScheduleReconciliationCard({ result }: { result: AnalyzeResult }) {
   return (
     <article className="card pad schedule-card">
       <div className="card-head">
+        <div className="card-head-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 6.5h9M4 6.5l2.3-2.3M4 6.5l2.3 2.3" />
+            <path d="M16 13.5H7M16 13.5l-2.3-2.3M16 13.5l-2.3 2.3" />
+          </svg>
+        </div>
         <div>
           <h2>{reconciliation.fileName ?? "Upload a VAT Schedule CSV to run the real matcher"}</h2>
           <p>

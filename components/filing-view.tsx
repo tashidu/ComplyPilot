@@ -175,7 +175,7 @@ function PackageRow({
         <strong>{name}</strong>
         <small>{note}</small>
       </td>
-      <td style={{ textAlign: "right" }}>
+      <td className="text-right">
         <span className={`tag ${ok ? "ok" : "warn"}`}>{status}</span>
       </td>
     </tr>

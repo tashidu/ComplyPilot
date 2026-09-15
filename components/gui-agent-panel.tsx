@@ -143,7 +143,7 @@ export function GuiAgentPanel({
       ) : null}
 
       {error ? (
-        <div className="notice" style={{ marginBottom: 14, borderLeftColor: "var(--red)" }}>
+        <div className="notice alert" style={{ marginBottom: 14 }}>
           <span aria-hidden="true">!</span>
           <div>{error}</div>
         </div>
@@ -216,7 +216,7 @@ export function GuiAgentPanel({
       ) : null}
 
       {run?.status === "failed" ? (
-        <div className="notice" style={{ marginTop: 14, borderLeftColor: "var(--red)" }}>
+        <div className="notice alert" style={{ marginTop: 14 }}>
           <span aria-hidden="true">!</span>
           <div>{run.error ?? "The agent could not complete the run."}</div>
         </div>

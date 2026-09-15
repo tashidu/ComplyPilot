@@ -167,7 +167,7 @@ export function DataCopilot({
               {expanded ? "⤡" : "⤢"}
             </button>
             <div className="copilot-mark" aria-hidden="true">CP</div>
-            <div>
+            <div className="copilot-head-text">
               <strong>VAT Copilot</strong>
               <span>Grounded in your profile + official sources</span>
             </div>

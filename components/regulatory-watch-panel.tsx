@@ -113,7 +113,7 @@ export function RegulatoryWatchPanel({
       </p>
 
       {error ? (
-        <div className="notice" style={{ marginTop: 14, borderLeftColor: "var(--red)" }}>
+        <div className="notice alert" style={{ marginTop: 14 }}>
           <span aria-hidden="true">!</span>
           <div>{error}</div>
         </div>
@@ -136,7 +136,7 @@ export function RegulatoryWatchPanel({
           <p style={{ fontSize: 12.5, marginBottom: 8 }}>
             <b>Summary.</b> {state.pending.summary}
           </p>
-          <p style={{ fontSize: 12.5, marginBottom: 10, color: "var(--ink-soft)" }}>
+          <p style={{ fontSize: 12.5, marginBottom: 10, color: "var(--t2)" }}>
             <b>Impact on this case.</b> {state.pending.impact}
           </p>
           <p className="subtle" style={{ marginBottom: 12 }}>

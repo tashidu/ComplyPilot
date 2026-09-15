@@ -25,6 +25,8 @@ import { VatLifecycleView } from "@/components/vat-lifecycle-view";
 import { VatReturnView } from "@/components/vat-return-view";
 import { VatRegistrationView, type RegistrationDraft } from "@/components/vat-registration-view";
 import { Modal, Toast } from "@/components/ui";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { WorkflowTrace } from "@/components/workflow-trace";
 import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
@@ -38,6 +40,14 @@ const GUEST_CHOICE_KEY = "cp_guest_choice";
 
 export default function Page() {
   const [view, setView] = useState<ViewId>("lifecycle");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Cosmetic only (which shortcut hint to print); both Cmd+B and Ctrl+B
+  // always work regardless of this value, so a wrong guess during SSR is
+  // harmless and self-corrects once mounted.
+  const [isMac, setIsMac] = useState(false);
+  useEffect(() => {
+    setIsMac(typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent));
+  }, []);
   const [futureRules, setFutureRules] = useState(true);
   const [resolved, setResolved] = useState<string[]>([]);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
@@ -86,6 +96,19 @@ export default function Page() {
   const navigate = useCallback((next: ViewId) => {
     setView(next);
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }, []);
+
+  // Drawer collapse: Cmd+B on macOS, Ctrl+B elsewhere - matches the app bar's
+  // hamburger toggle so either method works from anywhere in the app.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "b") {
+        event.preventDefault();
+        setSidebarCollapsed((current) => !current);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const postWorkspaceAction = useCallback(async (
@@ -646,20 +669,34 @@ export default function Page() {
 
   const periodApproved = activePeriod.status === "APPROVED" || activePeriod.status === "SUBMITTED";
   return (
-    <div className="shell">
-      <Sidebar view={view} onNavigate={navigate} openBlockers={openBlockers.length} smartFixCount={smartFixCount} taskCount={activeTasks.filter((task) => task.status !== "COMPLETED").length} />
+    <div className={`shell${sidebarCollapsed ? " collapsed" : ""}`}>
+      <Sidebar view={view} onNavigate={navigate} openBlockers={openBlockers.length} smartFixCount={smartFixCount} taskCount={activeTasks.filter((task) => task.status !== "COMPLETED").length} collapsed={sidebarCollapsed} user={authUser} />
       <main className="main">
         <header className="topbar">
+          <button
+            type="button"
+            className="icon-button drawer-toggle"
+            onClick={() => setSidebarCollapsed((current) => !current)}
+            aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            aria-pressed={sidebarCollapsed}
+            title={`${sidebarCollapsed ? "Expand" : "Collapse"} navigation (${isMac ? "⌘B" : "Ctrl+B"})`}
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
           <div className="topbar-title"><strong>{activeProfile.displayName}</strong><span>{activePeriod.label} · {activePeriod.status.replaceAll("_", " ")}</span></div>
           <div className="topbar-actions">
             <span className={`pill ${analyzeResult.dataMode === "USER_PROVIDED" ? "live" : "fallback"}`}><i className="dot" />{analyzeResult.dataMode === "USER_PROVIDED" ? "USER DATA" : "SYNTHETIC DEMO"}</span>
             <span className={`pill ${analyzeResult.mode === "LIVE_QWEN" ? "live" : "fallback"}`} title={analyzeResult.fallbackReason ?? "Fields were extracted by Alibaba Cloud Model Studio for this run."}><i className="dot" />AI: {analyzeResult.mode === "LIVE_QWEN" ? "LIVE QWEN" : "DEMO FALLBACK"}</span>
             <span className={`pill ${analyzeResult.workflow.mode === "LIVE_MULERUN" ? "live" : "fallback"}`} title={analyzeResult.workflow.fallbackReason ?? `MuleRun execution ${analyzeResult.workflow.executionId ?? ""}`}><i className="dot" />Workflow: {analyzeResult.workflow.mode === "LIVE_MULERUN" ? "LIVE MULERUN" : analyzeResult.workflow.muleRunAttempted ? "LOCAL FALLBACK" : "LOCAL"}</span>
+            <ThemeToggle />
             <button className="account-chip" onClick={() => navigate("account")} title={authUser ? authUser.email : "Guest demo session"}><span>{authUser ? authUser.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase() : "G"}</span>{authUser ? authUser.fullName.split(" ")[0] : "Guest"}</button>
             <button className="button" onClick={() => void resetAnalysis()}>Reset analysis</button>
             <button className="button primary" onClick={() => navigate(periodApproved ? "filing" : "period-close")}>{periodApproved ? "Open filing" : "Close period"}</button>
           </div>
         </header>
+        <div className="content-shell">
         <div className="content">
           {view === "lifecycle" ? <VatLifecycleView user={authUser} workspace={workspace} profile={activeProfile} onNavigate={navigate} /> : null}
           {view === "account" ? <AccountView user={authUser} onAuthenticated={setAuthUser} /> : null}
@@ -681,6 +718,12 @@ export default function Page() {
           {view === "business" ? <BusinessProfileView workspace={workspace} onActivate={activateBusiness} onSave={saveProfile} onCreate={createProfile} /> : null}
           {view === "filing" ? <FilingView result={analyzeResult} approved={filingConsent} submitted={submitted || activePeriod.status === "SUBMITTED"} periodApproved={periodApproved} periodLabel={activePeriod.label} documentCount={inboxCount} onApprovalChange={setFilingConsent} onSubmit={submitMock} onAgentEvent={(title, detail) => addAudit("agent", title, detail)} /> : null}
           {view === "audit" ? <AuditView events={audit} onExport={exportAudit} /> : null}
+        </div>
+        {view === "overview" ? (
+          <aside className="trace-rail" aria-label="Pipeline trace">
+            <WorkflowTrace result={analyzeResult} />
+          </aside>
+        ) : null}
         </div>
       </main>
       <Toast message={toast.message} show={toast.show} />

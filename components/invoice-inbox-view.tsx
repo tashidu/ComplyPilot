@@ -42,14 +42,14 @@ export function InvoiceInboxView({
       <article className="card pad inbox-table-card">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Document</th><th>Supplier / type</th><th>Added</th><th style={{ textAlign: "right" }}>VAT</th><th>Status</th></tr></thead>
+            <thead><tr><th>Document</th><th>Supplier / type</th><th>Added</th><th className="text-right">VAT</th><th>Status</th></tr></thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
                   <td><strong>{item.reference}</strong><small>{item.fileName}</small></td>
                   <td>{item.supplierName ?? item.documentType.replaceAll("_", " ")}<small>{item.dataMode === "SYNTHETIC_DEMO" ? "Synthetic demo evidence" : "User-provided evidence"}</small></td>
                   <td>{new Date(item.uploadedAt).toLocaleDateString("en-LK")}</td>
-                  <td style={{ textAlign: "right" }}>{money(item.vatAmountLkr)}</td>
+                  <td className="text-right">{money(item.vatAmountLkr)}</td>
                   <td><span className={`tag ${item.status === "MATCHED" || item.status === "PROCESSED" ? "ok" : item.status === "FAILED" ? "alert" : "warn"}`}>{item.status.replaceAll("_", " ")}</span></td>
                 </tr>
               ))}

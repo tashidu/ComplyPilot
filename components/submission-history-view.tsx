@@ -25,12 +25,13 @@ export function SubmissionHistoryView({
       <div className="submission-list">
         {submissions.map((submission) => {
           const period = workspace.periods.find((candidate) => candidate.id === submission.periodId);
+          const failed = submission.status === "FAILED";
           return (
             <article className="card pad submission-card" key={submission.id}>
               <div className="submission-main">
-                <span className="submission-icon">✓</span>
+                <span className={`submission-icon ${failed ? "bad" : "ok"}`}>{failed ? "!" : "✓"}</span>
                 <div>
-                  <div className="chip-row"><span className="tag ok">{submission.status.replaceAll("_", " ")}</span><span className="tag">{submission.submissionType.replaceAll("_", " ")}</span></div>
+                  <div className="chip-row"><span className={`tag ${failed ? "bad" : "ok"}`}>{submission.status.replaceAll("_", " ")}</span><span className="tag">{submission.submissionType.replaceAll("_", " ")}</span></div>
                   <h2>{period?.label ?? "Archived VAT period"}</h2>
                   <p>{submission.note}</p>
                 </div>

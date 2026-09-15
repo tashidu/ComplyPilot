@@ -1,5 +1,8 @@
 "use client";
 
+import type { AuthUser } from "@/lib/auth/types";
+import { NavIcon } from "./nav-icons";
+
 export type ViewId =
   | "lifecycle"
   | "account"
@@ -70,55 +73,93 @@ const NAV: { label: string; items: { id: ViewId; label: string }[] }[] = [
   },
 ];
 
+/** Two initials for the account snippet, or "G" for a guest session. */
+function initials(user: AuthUser | null): string {
+  if (!user) return "G";
+  return user.fullName
+    .split(/\s+/)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
+
 export function Sidebar({
   view,
   onNavigate,
   openBlockers,
   smartFixCount,
   taskCount,
+  collapsed,
+  user,
 }: {
   view: ViewId;
   onNavigate: (view: ViewId) => void;
   openBlockers: number;
   smartFixCount: number;
   taskCount: number;
+  collapsed: boolean;
+  user: AuthUser | null;
 }) {
+  const badgeFor = (id: ViewId): number => {
+    if (id === "evidence") return openBlockers;
+    if (id === "smart-fix") return smartFixCount;
+    if (id === "tasks") return taskCount;
+    return 0;
+  };
+
   return (
-    <aside className="sidebar" aria-label="Primary">
+    <aside className={`sidebar${collapsed ? " collapsed" : ""}`} aria-label="Primary">
       <div className="brand">
         <div className="brand-mark">CP</div>
-        <div>
-          <strong>ComplyPilot</strong>
-          <small>RefundShield</small>
-        </div>
+        {collapsed ? null : (
+          <div>
+            <strong>ComplyPilot</strong>
+            <small>RefundShield</small>
+          </div>
+        )}
       </div>
 
       <nav className="nav">
         {NAV.map((group) => (
           <div className="nav-group" key={group.label}>
-            <div className="nav-label">{group.label}</div>
-            {group.items.map((item) => (
-              <button
-                key={item.id}
-                className="nav-item"
-                aria-current={view === item.id ? "page" : undefined}
-                onClick={() => onNavigate(item.id)}
-              >
-                <span className="nav-mark" aria-hidden="true" />
-                <span>{item.label}</span>
-                {item.id === "evidence" && openBlockers > 0 ? <span className="nav-count">{openBlockers}</span> : null}
-                {item.id === "smart-fix" && smartFixCount > 0 ? <span className="nav-count">{smartFixCount}</span> : null}
-                {item.id === "tasks" && taskCount > 0 ? <span className="nav-count">{taskCount}</span> : null}
-              </button>
-            ))}
+            {collapsed ? <div className="nav-divider" role="separator" /> : <div className="nav-label">{group.label}</div>}
+            {group.items.map((item) => {
+              const badge = badgeFor(item.id);
+              return (
+                <button
+                  key={item.id}
+                  className="nav-item"
+                  aria-current={view === item.id ? "page" : undefined}
+                  data-tooltip={collapsed ? item.label : undefined}
+                  onClick={() => onNavigate(item.id)}
+                >
+                  <span className="nav-icon" aria-hidden="true">
+                    <NavIcon id={item.id} />
+                  </span>
+                  {collapsed ? null : <span className="nav-item-label">{item.label}</span>}
+                  {badge > 0 ? <span className="nav-count">{badge}</span> : null}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      <div className="sidebar-foot">
-        <strong>Transparent by design</strong>
-        Demo and user-provided data stay labelled. The score is a readiness proxy, not an official IRD risk rating.
-      </div>
+      {collapsed ? null : (
+        <div className="sidebar-foot">
+          <button className="sidebar-account" onClick={() => onNavigate("account")}>
+            <span className="sidebar-account-mark" aria-hidden="true">{initials(user)}</span>
+            <span className="sidebar-account-text">
+              <strong>{user ? user.fullName : "Guest session"}</strong>
+              <small>{user ? user.email : "Signed out · demo data"}</small>
+            </span>
+          </button>
+          <p className="sidebar-note">
+            The score is a readiness proxy, not an official IRD risk rating.
+          </p>
+        </div>
+      )}
     </aside>
   );
 }
