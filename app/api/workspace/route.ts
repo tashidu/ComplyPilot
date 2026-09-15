@@ -5,10 +5,13 @@ import { getSession, withSession } from "@/lib/http/session";
 import { recallRun } from "@/lib/runs/run-store";
 import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-store";
 import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
+import { calculateInvoiceLine, calculateVat, invoiceSerial, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
 import {
   activeProfile,
   createId,
   isProfileComplete,
+  canOperateVat,
+  vatOperationBlocker,
   syncAnalysisToWorkspace,
   type BusinessProfile,
   type BusinessWorkspace,
@@ -29,6 +32,8 @@ const ProfileFields = z.object({
   tin: z.union([z.literal(""), z.string().trim().regex(/^\d{9}$/, "TIN must contain nine digits.")]),
   irdPinStatus: z.enum(["NOT_REQUESTED", "REQUESTED", "ACTIVE"]),
   vatRegistrationStatus: z.enum(["ACTIVE", "PENDING", "NOT_SET"]),
+  vatRegistrationEffectiveDate: z.union([z.literal(""), DateText]),
+  vatRegistrationCertificateRef: z.string().trim().max(120),
   filingFrequency: z.enum(["MONTHLY", "QUARTERLY"]),
   industry: z.string().trim().max(100),
   address: z.string().trim().max(240),
@@ -37,13 +42,82 @@ const ProfileFields = z.object({
   financeEmail: z.union([z.literal(""), z.string().email().max(160)]),
   accountingSystem: z.string().trim().max(100),
   authorisedReviewer: z.string().trim().max(100),
-  ramisConnection: z.enum(["SIMULATOR", "NOT_CONNECTED", "ONBOARDING"]),
-});
+  ramisConnection: z.enum(["SIMULATOR", "NOT_CONNECTED", "ONBOARDING", "LIVE_APPROVED"]),
+}).refine(
+  // ACTIVE is a claim that the Department registered this business. It may only
+  // be saved together with the evidence for it - otherwise a profile edit is
+  // enough to unlock invoicing and a VAT return with nothing behind them.
+  // confirm_vat_registration is the path that supplies both.
+  (profile) =>
+    profile.vatRegistrationStatus !== "ACTIVE" ||
+    Boolean(profile.vatRegistrationEffectiveDate && profile.vatRegistrationCertificateRef.trim()),
+  {
+    message:
+      "An active VAT registration needs its IRD effective date and certificate or acknowledgement reference.",
+    path: ["vatRegistrationStatus"],
+  },
+);
 
 const WorkspaceAction = z.discriminatedUnion("action", [
   z.object({ action: z.literal("create_profile"), profile: ProfileFields }),
   z.object({ action: z.literal("update_profile"), profileId: z.string().min(1).max(100), profile: ProfileFields }),
   z.object({ action: z.literal("activate_profile"), profileId: z.string().min(1).max(100) }),
+  z.object({
+    action: z.literal("confirm_vat_registration"),
+    profileId: z.string().min(1).max(100),
+    effectiveDate: DateText,
+    certificateReference: z.string().trim().min(3).max(120),
+  }),
+  z.object({
+    action: z.literal("save_ramis_api_profile"),
+    profileId: z.string().min(1).max(100),
+    integration: z.object({
+      status: z.enum(["NOT_STARTED", "CONTACT_IRD", "ONBOARDING", "APPROVED"]),
+      integrationReference: z.string().trim().max(120),
+      erpSystemName: z.string().trim().max(120),
+      technicalContactEmail: z.union([z.literal(""), z.string().email().max(160)]),
+      ssid: z.string().trim().max(120),
+      credentialsConfigured: z.boolean(),
+      baseUrlReceivedFromIrd: z.boolean(),
+      scheduleScopes: z.array(z.enum(["SCHEDULE_01", "SCHEDULE_04", "SCHEDULE_07"])).max(3),
+      notes: z.string().trim().max(800),
+    }),
+  }),
+  z.object({
+    action: z.literal("create_vat_transaction"),
+    profileId: z.string().min(1).max(100),
+    periodId: z.string().min(1).max(100),
+    transaction: z.object({
+      kind: z.enum(["OUTPUT", "INPUT_LOCAL", "INPUT_IMPORT"]),
+      treatment: z.enum(["STANDARD_18", "ZERO_RATED", "EXEMPT", "OUT_OF_SCOPE"]),
+      supplyType: z.enum(["GOODS", "SERVICES"]),
+      invoiceNumber: z.string().trim().min(1).max(40),
+      invoiceDate: DateText,
+      counterpartyName: z.string().trim().min(2).max(160),
+      counterpartyTin: z.union([z.literal(""), z.string().regex(/^\d{9}$/)]),
+      description: z.string().trim().min(2).max(240),
+      netAmountLkr: z.number().finite().positive().max(1_000_000_000_000),
+      disallowedInputVatLkr: z.number().finite().min(0).max(1_000_000_000_000),
+    }),
+  }),
+  z.object({
+    action: z.literal("create_vat_invoice"),
+    profileId: z.string().min(1).max(100),
+    periodId: z.string().min(1).max(100),
+    invoice: z.object({
+      invoiceDate: DateText,
+      supplyDate: DateText,
+      classificationCode: z.string().trim().regex(/^[A-Za-z0-9]{1,15}$/),
+      treatment: z.enum(["STANDARD_18", "ZERO_RATED"]),
+      supplyType: z.enum(["GOODS", "SERVICES"]),
+      purchaserName: z.string().trim().min(2).max(160),
+      purchaserTin: z.string().regex(/^\d{9}$/),
+      purchaserAddress: z.string().trim().min(3).max(240),
+      placeOfSupply: z.string().trim().max(160),
+      paymentMode: z.string().trim().max(80),
+      lines: z.array(z.object({ description: z.string().trim().min(2).max(240), quantity: z.number().finite().positive().max(1_000_000), unitPriceLkr: z.number().finite().positive().max(1_000_000_000_000) })).min(1).max(20),
+    }),
+  }),
   z.object({
     action: z.literal("save_vat_registration"),
     profileId: z.string().min(1).max(100),
@@ -214,6 +288,80 @@ export async function POST(req: Request) {
     } else if (input.action === "activate_profile") {
       findProfile(workspace, input.profileId);
       workspace = { ...workspace, activeProfileId: input.profileId, updatedAt: now };
+    } else if (input.action === "confirm_vat_registration") {
+      const profile = findProfile(workspace, input.profileId);
+      workspace = {
+        ...workspace,
+        profiles: workspace.profiles.map((candidate) => candidate.id === profile.id ? {
+          ...candidate,
+          vatRegistrationStatus: "ACTIVE",
+          vatRegistrationEffectiveDate: input.effectiveDate,
+          vatRegistrationCertificateRef: input.certificateReference,
+          updatedAt: now,
+        } : candidate),
+        vatRegistrations: workspace.vatRegistrations.map((application) => application.profileId === profile.id ? { ...application, status: "EXTERNALLY_SUBMITTED", updatedAt: now } : application),
+        updatedAt: now,
+      };
+    } else if (input.action === "save_ramis_api_profile") {
+      const profile = findProfile(workspace, input.profileId);
+      if (input.integration.status === "APPROVED" && !canOperateVat(profile)) {
+        throw new WorkspaceRequestError(
+          vatOperationBlocker(profile) ??
+            "Confirm the VAT registration before marking RAMIS Web API onboarding approved.",
+        );
+      }
+      const integration = { profileId: profile.id, ...input.integration, updatedAt: now };
+      const existing = workspace.ramisApiProfiles.some((item) => item.profileId === profile.id);
+      workspace = {
+        ...workspace,
+        ramisApiProfiles: existing
+          ? workspace.ramisApiProfiles.map((item) => item.profileId === profile.id ? integration : item)
+          : [...workspace.ramisApiProfiles, integration],
+        profiles: workspace.profiles.map((candidate) => candidate.id === profile.id ? { ...candidate, ramisConnection: input.integration.status === "APPROVED" ? "LIVE_APPROVED" : input.integration.status === "NOT_STARTED" ? "NOT_CONNECTED" : "ONBOARDING", updatedAt: now } : candidate),
+        updatedAt: now,
+      };
+    } else if (input.action === "create_vat_transaction") {
+      const profile = findProfile(workspace, input.profileId);
+      const period = findPeriod(workspace, input.periodId);
+      if (!canOperateVat(profile)) {
+        throw new WorkspaceRequestError(
+          vatOperationBlocker(profile) ?? "Confirm VAT registration before recording VAT transactions.",
+        );
+      }
+      if (period.profileId !== profile.id) throw new WorkspaceRequestError("That period belongs to another business.");
+      if (period.status === "APPROVED" || period.status === "SUBMITTED") throw new WorkspaceRequestError("This VAT period is closed.");
+      const amounts = calculateVat(input.transaction.netAmountLkr, input.transaction.treatment);
+      const disallowed = input.transaction.kind === "OUTPUT" ? 0 : Math.min(amounts.vatAmountLkr, input.transaction.disallowedInputVatLkr);
+      const transaction = {
+        id: createId("VATTX"),
+        profileId: profile.id,
+        periodId: period.id,
+        ...input.transaction,
+        ...amounts,
+        disallowedInputVatLkr: disallowed,
+        scheduleCode: scheduleFor(input.transaction.kind, input.transaction.treatment, input.transaction.supplyType),
+        source: "MANUAL" as const,
+        createdAt: now,
+      };
+      workspace = { ...workspace, vatTransactions: [transaction, ...workspace.vatTransactions], updatedAt: now };
+    } else if (input.action === "create_vat_invoice") {
+      const profile = findProfile(workspace, input.profileId);
+      const period = findPeriod(workspace, input.periodId);
+      if (!canOperateVat(profile)) {
+        throw new WorkspaceRequestError(
+          vatOperationBlocker(profile) ?? "Confirm VAT registration before issuing a tax invoice.",
+        );
+      }
+      if (period.profileId !== profile.id) throw new WorkspaceRequestError("That period belongs to another business.");
+      if (period.status === "APPROVED" || period.status === "SUBMITTED") throw new WorkspaceRequestError("This VAT period is closed.");
+      if (input.invoice.invoiceDate < period.startDate || input.invoice.invoiceDate > period.endDate) throw new WorkspaceRequestError("Invoice date must fall inside the active VAT period.");
+      const sequence = workspace.generatedInvoices.filter((item) => item.profileId === profile.id && item.invoiceDate.slice(0, 7) === input.invoice.invoiceDate.slice(0, 7) && item.classificationCode === input.invoice.classificationCode).length + 1;
+      const number = invoiceSerial(input.invoice.invoiceDate, input.invoice.classificationCode, sequence);
+      const lines = input.invoice.lines.map((line) => calculateInvoiceLine(line, input.invoice.treatment));
+      const { netTotalLkr, vatTotalLkr, grossTotalLkr } = totalInvoiceLines(lines, input.invoice.treatment);
+      const invoice = { id: createId("VATINV"), profileId: profile.id, periodId: period.id, invoiceNumber: number, ...input.invoice, lines, netTotalLkr, vatTotalLkr, grossTotalLkr, status: "DRAFT" as const, createdAt: now };
+      const transaction = { id: createId("VATTX"), profileId: profile.id, periodId: period.id, kind: "OUTPUT" as const, treatment: input.invoice.treatment, supplyType: input.invoice.supplyType, invoiceNumber: number, invoiceDate: input.invoice.invoiceDate, counterpartyName: input.invoice.purchaserName, counterpartyTin: input.invoice.purchaserTin, description: lines.map((line) => line.description).join("; ").slice(0, 240), netAmountLkr: netTotalLkr, vatRate: input.invoice.treatment === "STANDARD_18" ? 18 : 0, vatAmountLkr: vatTotalLkr, grossAmountLkr: grossTotalLkr, disallowedInputVatLkr: 0, scheduleCode: scheduleFor("OUTPUT", input.invoice.treatment, input.invoice.supplyType), source: "GENERATED_INVOICE" as const, createdAt: now };
+      workspace = { ...workspace, generatedInvoices: [invoice, ...workspace.generatedInvoices], vatTransactions: [transaction, ...workspace.vatTransactions], updatedAt: now };
     } else if (input.action === "save_vat_registration") {
       const profile = findProfile(workspace, input.profileId);
       const existing = workspace.vatRegistrations.find((item) => item.profileId === profile.id);

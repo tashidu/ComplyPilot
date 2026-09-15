@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AnalyzeResult, DataMode, FindingSeverity } from "../types";
+export { isProfileComplete, canOperateVat, vatOperationBlocker } from "./profile-readiness";
 
 export type FilingFrequency = "MONTHLY" | "QUARTERLY";
 export type VatRegistrationStatus = "ACTIVE" | "PENDING" | "NOT_SET";
@@ -18,6 +19,10 @@ export type WorkspaceTaskStatus = "OPEN" | "WAITING_EVIDENCE" | "READY_FOR_REVIE
 export type VatRegistrationBasis = "TURNOVER" | "VOLUNTARY" | "IMPORT_EXPORT" | "SECTION_10C_NEW_BUSINESS" | "TEMPORARY";
 export type VatRegistrationApplicationStatus = "NOT_STARTED" | "IN_PROGRESS" | "READY_FOR_REVIEW" | "EXTERNALLY_SUBMITTED";
 export type VatRegistrationDocumentStatus = "MISSING" | "READY" | "NOT_APPLICABLE";
+export type RamisApiStatus = "NOT_STARTED" | "CONTACT_IRD" | "ONBOARDING" | "APPROVED";
+export type VatTransactionKind = "OUTPUT" | "INPUT_LOCAL" | "INPUT_IMPORT";
+export type VatTreatment = "STANDARD_18" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE";
+export type VatSupplyType = "GOODS" | "SERVICES";
 
 export type BusinessProfile = {
   id: string;
@@ -29,6 +34,8 @@ export type BusinessProfile = {
   tin: string;
   irdPinStatus: IrdPinStatus;
   vatRegistrationStatus: VatRegistrationStatus;
+  vatRegistrationEffectiveDate: string;
+  vatRegistrationCertificateRef: string;
   filingFrequency: FilingFrequency;
   industry: string;
   address: string;
@@ -76,6 +83,75 @@ export type VatRegistrationApplication = {
   signatoryNic: string;
   documents: VatRegistrationDocument[];
   updatedAt: string;
+};
+
+export type RamisApiProfile = {
+  profileId: string;
+  status: RamisApiStatus;
+  integrationReference: string;
+  erpSystemName: string;
+  technicalContactEmail: string;
+  ssid: string;
+  credentialsConfigured: boolean;
+  baseUrlReceivedFromIrd: boolean;
+  scheduleScopes: Array<"SCHEDULE_01" | "SCHEDULE_04" | "SCHEDULE_07">;
+  notes: string;
+  updatedAt: string;
+};
+
+export type VatTransaction = {
+  id: string;
+  profileId: string;
+  periodId: string;
+  kind: VatTransactionKind;
+  treatment: VatTreatment;
+  supplyType: VatSupplyType;
+  invoiceNumber: string;
+  invoiceDate: string;
+  counterpartyName: string;
+  counterpartyTin: string;
+  description: string;
+  netAmountLkr: number;
+  vatRate: number;
+  vatAmountLkr: number;
+  grossAmountLkr: number;
+  disallowedInputVatLkr: number;
+  scheduleCode: "01" | "02" | "03" | "06" | "07" | "NONE";
+  source: "MANUAL" | "GENERATED_INVOICE" | "DOCUMENT_EXTRACTION";
+  createdAt: string;
+};
+
+export type VatInvoiceLine = {
+  description: string;
+  quantity: number;
+  unitPriceLkr: number;
+  netAmountLkr: number;
+  vatRate: number;
+  vatAmountLkr: number;
+  grossAmountLkr: number;
+};
+
+export type GeneratedVatInvoice = {
+  id: string;
+  profileId: string;
+  periodId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  supplyDate: string;
+  classificationCode: string;
+  treatment: "STANDARD_18" | "ZERO_RATED";
+  supplyType: VatSupplyType;
+  purchaserName: string;
+  purchaserTin: string;
+  purchaserAddress: string;
+  placeOfSupply: string;
+  paymentMode: string;
+  lines: VatInvoiceLine[];
+  netTotalLkr: number;
+  vatTotalLkr: number;
+  grossTotalLkr: number;
+  status: "DRAFT" | "ISSUED";
+  createdAt: string;
 };
 
 export type VatPeriodRecord = {
@@ -146,6 +222,9 @@ export type BusinessWorkspace = {
   tasks: WorkspaceTask[];
   submissions: SubmissionHistoryItem[];
   vatRegistrations: VatRegistrationApplication[];
+  ramisApiProfiles: RamisApiProfile[];
+  vatTransactions: VatTransaction[];
+  generatedInvoices: GeneratedVatInvoice[];
   updatedAt: string;
 };
 
@@ -175,6 +254,8 @@ export function createDefaultWorkspace(): BusinessWorkspace {
         tin: "134857291",
         irdPinStatus: "ACTIVE",
         vatRegistrationStatus: "ACTIVE",
+        vatRegistrationEffectiveDate: "2022-01-01",
+        vatRegistrationCertificateRef: "VAT-DEMO-134857291",
         filingFrequency: "MONTHLY",
         industry: "Export manufacturing",
         address: "42 Export Park, Colombo 03, Sri Lanka",
@@ -307,6 +388,52 @@ export function createDefaultWorkspace(): BusinessWorkspace {
       },
     ],
     vatRegistrations: [],
+    ramisApiProfiles: [],
+    vatTransactions: [
+      {
+        id: "VATTX-DEMO-OUTPUT-1",
+        profileId,
+        periodId: activePeriodId,
+        kind: "OUTPUT",
+        treatment: "STANDARD_18",
+        supplyType: "GOODS",
+        invoiceNumber: "26OCT_BR03_1030",
+        invoiceDate: "2026-10-06",
+        counterpartyName: "Lanka Retail Partners",
+        counterpartyTin: "100123456",
+        description: "Packaging materials",
+        netAmountLkr: 2_500_000,
+        vatRate: 18,
+        vatAmountLkr: 450_000,
+        grossAmountLkr: 2_950_000,
+        disallowedInputVatLkr: 0,
+        scheduleCode: "01",
+        source: "MANUAL",
+        createdAt: now,
+      },
+      {
+        id: "VATTX-DEMO-INPUT-1",
+        profileId,
+        periodId: activePeriodId,
+        kind: "INPUT_LOCAL",
+        treatment: "STANDARD_18",
+        supplyType: "GOODS",
+        invoiceNumber: "26OCT_SUP08_0042",
+        invoiceDate: "2026-10-08",
+        counterpartyName: "Ceylon Industrial Supplies",
+        counterpartyTin: "100654321",
+        description: "Production consumables",
+        netAmountLkr: 1_000_000,
+        vatRate: 18,
+        vatAmountLkr: 180_000,
+        grossAmountLkr: 1_180_000,
+        disallowedInputVatLkr: 20_000,
+        scheduleCode: "02",
+        source: "MANUAL",
+        createdAt: now,
+      },
+    ],
+    generatedInvoices: [],
     updatedAt: now,
   };
 }
@@ -321,11 +448,16 @@ export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace 
       businessRegistrationNumber: profile.businessRegistrationNumber ?? "",
       incorporationDate: profile.incorporationDate ?? "",
       irdPinStatus: profile.irdPinStatus ?? "NOT_REQUESTED",
+      vatRegistrationEffectiveDate: profile.vatRegistrationEffectiveDate ?? "",
+      vatRegistrationCertificateRef: profile.vatRegistrationCertificateRef ?? "",
       postalCode: profile.postalCode ?? "",
       contactPhone: profile.contactPhone ?? "",
       accountingSystem: profile.accountingSystem ?? "",
     })),
     vatRegistrations: input.vatRegistrations ?? [],
+    ramisApiProfiles: input.ramisApiProfiles ?? [],
+    vatTransactions: input.vatTransactions ?? [],
+    generatedInvoices: input.generatedInvoices ?? [],
   };
 }
 
@@ -338,22 +470,6 @@ export function activePeriod(workspace: BusinessWorkspace): VatPeriodRecord {
   return (
     workspace.periods.find((period) => period.id === profile.activePeriodId && period.profileId === profile.id) ??
     workspace.periods.find((period) => period.profileId === profile.id)!
-  );
-}
-
-export function isProfileComplete(profile: BusinessProfile): boolean {
-  return Boolean(
-    profile.legalName.trim() &&
-      profile.entityType &&
-      (profile.entityType === "INDIVIDUAL_PROPRIETORSHIP" || profile.businessRegistrationNumber.trim()) &&
-      /^\d{9}$/.test(profile.tin.trim()) &&
-      profile.irdPinStatus === "ACTIVE" &&
-      profile.vatRegistrationStatus === "ACTIVE" &&
-      profile.filingFrequency &&
-      profile.address.trim() &&
-      profile.contactPhone.trim() &&
-      profile.financeEmail.trim() &&
-      profile.authorisedReviewer.trim(),
   );
 }
 
