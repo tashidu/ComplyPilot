@@ -79,5 +79,18 @@ export function VatLedgerView({ workspace, profile, period, onSave, onDelete, on
   </>;
 }
 
-function Metric({ label, value, tone }: { label: string; value: number; tone: string }) { return <article className={`vat-metric ${tone}`}><span>{label}</span><strong>{money(value)}</strong></article>; }
+const METRIC_ICON: Record<string, { glyph: string; tone: string }> = {
+  ok: { glyph: "\u2713", tone: "mint" },
+  warn: { glyph: "!", tone: "amber" },
+  bad: { glyph: "\u2191", tone: "red" },
+  brand: { glyph: "\u03a3", tone: "brand" },
+};
+
+function Metric({ label, value, tone }: { label: string; value: number; tone: string }) {
+  const icon = METRIC_ICON[tone] ?? METRIC_ICON.brand;
+  return <article className={`vat-metric ${tone}`}>
+    <div className={`metric-icon ${icon.tone}`} aria-hidden="true">{icon.glyph}</div>
+    <div><span>{label}</span><strong className="mono">{money(value)}</strong></div>
+  </article>;
+}
 function money(value: number) { return new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", maximumFractionDigits: 2 }).format(value); }

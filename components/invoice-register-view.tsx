@@ -102,8 +102,19 @@ export function InvoiceRegisterView({ workspace, profile, busy, onIssue, onVoid,
   </>;
 }
 
+const METRIC_ICON: Record<string, { glyph: string; tone: string }> = {
+  ok: { glyph: "\u2713", tone: "mint" },
+  warn: { glyph: "\u270e", tone: "amber" },
+  bad: { glyph: "\u2715", tone: "red" },
+  brand: { glyph: "\u03a3", tone: "brand" },
+};
+
 function Metric({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: string }) {
-  return <article className={`vat-metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
+  const icon = METRIC_ICON[tone] ?? METRIC_ICON.brand;
+  return <article className={`vat-metric ${tone}`}>
+    <div className={`metric-icon ${icon.tone}`} aria-hidden="true">{icon.glyph}</div>
+    <div><span>{label}</span><strong className="mono">{value}</strong><small>{detail}</small></div>
+  </article>;
 }
 
 function money(value: number) { return new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", maximumFractionDigits: 2 }).format(value); }

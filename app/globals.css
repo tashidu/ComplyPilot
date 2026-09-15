@@ -1512,8 +1512,13 @@ button {
 }
 
 .metric-icon.amber {
-  background: var(--primary-c);
-  color: var(--primary);
+  background: var(--amber-c);
+  color: var(--amber);
+}
+
+.metric-icon.red {
+  background: var(--red-c);
+  color: var(--red);
 }
 
 .metric strong {
@@ -3333,8 +3338,8 @@ td small {
   margin-top: 16px;
 }
 
-.api-facts h2 {
-  margin: 5px 0 16px;
+.api-facts .card-head {
+  margin-bottom: 16px;
 }
 
 .api-facts ol {
@@ -3368,16 +3373,18 @@ td small {
 }
 
 .vat-metric {
+  display: flex;
+  align-items: center;
+  gap: 13px;
   padding: 15px;
-  border-top: 3px solid var(--primary);
-  border-radius: var(--r-tile);
+  border-radius: var(--r-card);
   background: var(--surface);
   box-shadow: var(--e1);
 }
 
-.vat-metric.ok { border-top-color: var(--green); }
-.vat-metric.warn { border-top-color: var(--amber); }
-.vat-metric.bad { border-top-color: var(--red); }
+.vat-metric > div:last-child {
+  min-width: 0;
+}
 
 .vat-metric span {
   display: block;
@@ -3389,8 +3396,13 @@ td small {
 
 .vat-metric strong {
   display: block;
-  margin-top: 4px;
+  margin-top: 3px;
+  overflow: hidden;
+  font-family: var(--font-heading);
   font-size: 19px;
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-grid,
@@ -3654,7 +3666,7 @@ td small {
 
 .vat-return-equation {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
+  grid-template-columns: 1fr auto 1fr auto 1.35fr;
   align-items: stretch;
   gap: 10px;
   margin-bottom: 16px;
@@ -3688,12 +3700,55 @@ td small {
   font-size: 20px;
 }
 
-.vat-return-equation .payable {
-  background: var(--red-c);
+/* The whole page exists to produce this one figure, so it is the only thing
+   on the screen given hero treatment - the two operands stay quiet tiles. */
+.vat-return-result {
+  position: relative;
+  overflow: hidden;
+  justify-content: center;
+  padding: 20px;
+  box-shadow: var(--e-pri);
+  color: #fff;
 }
 
-.vat-return-equation .credit {
-  background: var(--green-c);
+.vat-return-result::before {
+  content: "";
+  position: absolute;
+  inset: -45% -20% auto auto;
+  width: 60%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.vat-return-result > * {
+  position: relative;
+}
+
+.vat-return-result.payable {
+  background: linear-gradient(135deg, var(--primary-solid) 0%, var(--primary-h) 45%, var(--red-solid) 100%);
+}
+
+.vat-return-result.credit {
+  background: linear-gradient(135deg, var(--primary-solid) 0%, var(--primary-h) 45%, var(--green-solid) 100%);
+}
+
+.vat-return-equation .vat-return-result span,
+.vat-return-equation .vat-return-result small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.vat-return-equation .vat-return-result strong {
+  margin: 2px 0 3px;
+  font-family: var(--font-heading);
+  font-size: 27px;
+  letter-spacing: -0.02em;
+}
+
+.vat-return-equation .vat-return-result small {
+  font-size: 11px;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .schedule-map,
@@ -5676,4 +5731,201 @@ td small {
   html {
     @apply font-sans;
   }
+}
+/* ------------------------------------------------- filing hero */
+
+.filing-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, var(--primary-solid) 0%, var(--primary-h) 48%, var(--red-solid) 100%);
+  box-shadow: var(--e-pri);
+  color: #fff;
+}
+
+.filing-hero::before {
+  content: "";
+  position: absolute;
+  inset: -40% -12% auto auto;
+  width: 44%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.filing-hero > * {
+  position: relative;
+}
+
+.filing-hero-top {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+/* The readiness figure reads as one unit: the number carries the weight, the
+   denominator stays a caption beside it. */
+.filing-hero-score {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 0 0 auto;
+  padding: 14px 20px;
+  border-radius: var(--r-card);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.filing-hero-score strong {
+  font-family: var(--font-heading);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.filing-hero-score span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.filing-hero-text {
+  min-width: 0;
+}
+
+.filing-hero-state {
+  display: inline-block;
+  margin-bottom: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.filing-hero-text h2 {
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.filing-hero-text p {
+  margin: 4px 0 0;
+  max-width: 62ch;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.filing-hero-approval {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 15px;
+  border-radius: var(--r-tile);
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 12.5px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+
+/* The app checkbox fills gold when checked, which is the hero's own ground -
+   on the gradient it inverts to a white box with a maroon tick. */
+.filing-hero-approval input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.filing-hero-approval input[type="checkbox"]::before {
+  background: var(--red-solid);
+}
+
+.filing-hero-approval input[type="checkbox"]:checked {
+  border-color: #fff;
+  background: #fff;
+}
+
+/* White on the gradient, not the app's gold button - a gold fill on a gold
+   ground would disappear. */
+.filing-hero-submit {
+  border: 0;
+  background: #fff;
+  color: var(--t1);
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+}
+
+.filing-hero-submit:hover:not(:disabled) {
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+
+.filing-hero-submit:disabled {
+  background: rgba(255, 255, 255, 0.4);
+  color: rgba(36, 26, 6, 0.55);
+  box-shadow: none;
+}
+
+@media (max-width: 820px) {
+  .filing-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+}
+
+/* ------------------------------------------- grouped form sections */
+
+/* A long setup form reads as a sequence of questions, not one wall of
+   inputs: each group says where its answers come from. */
+.form-section + .form-section {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.form-section-head {
+  margin-bottom: 14px;
+}
+
+.form-section-head h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  letter-spacing: -0.01em;
+}
+
+.form-section-head p {
+  margin: 3px 0 0;
+  color: var(--t3);
+  font-size: 12px;
+}
+
+/* Two rows of four tiles sat next to each other with nothing to say they
+   were different things. A quiet label above each one names it. */
+.strip-label {
+  margin: 18px 0 8px;
+  color: var(--t3);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.registration-caption {
+  max-width: 88ch;
+  margin: -4px 0 16px;
+  color: var(--t2);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+
+.registration-caption strong {
+  color: var(--t1);
 }

@@ -76,10 +76,14 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile,
     <>
       <PageHead eyebrow="IRD registration preparation" title="VAT Registration Assistant" lead="A guided TIN → e-Services → VAT tax-type workflow built from the IRD 2026 taxpayer-registration guide and TPR 005 form." action={<span className={`tag ${readiness.ready ? "ok" : "warn"}`}>{readiness.percentage}% prepared</span>} />
 
-      <div className="registration-boundary"><strong>Preparation only</strong><span>ComplyPilot prepares and checks information. It does not create an IRD account, submit this application, or store your IRD password/PIN.</span></div>
+      {/* The boundary note is a standing disclaimer, not news - it reads as a
+          caption under the title instead of a third full-width bar competing
+          with the two navigational strips below it. */}
+      <p className="registration-caption"><strong>Preparation only.</strong> ComplyPilot prepares and checks information. It does not create an IRD account, submit this application, or store your IRD password/PIN.</p>
 
-      {profile.vatRegistrationStatus === "ACTIVE" ? <div className="vat-active-banner"><span>✓</span><div><strong>VAT registration marked active</strong><p>TIN {profile.tin}{profile.vatRegistrationEffectiveDate ? ` · effective ${profile.vatRegistrationEffectiveDate}` : ""}{profile.vatRegistrationCertificateRef ? ` · reference ${profile.vatRegistrationCertificateRef}` : ""}. This is user-supplied profile data, not a live RAMIS verification.</p></div></div> : null}
+      {profile.vatRegistrationStatus === "ACTIVE" ? <div className="vat-active-banner"><span>✓</span><div><strong>VAT registration marked active</strong><p>TIN <span className="mono">{profile.tin}</span>{profile.vatRegistrationEffectiveDate ? <> · effective <span className="mono">{profile.vatRegistrationEffectiveDate}</span></> : ""}{profile.vatRegistrationCertificateRef ? <> · reference <span className="mono">{profile.vatRegistrationCertificateRef}</span></> : ""}. This is user-supplied profile data, not a live RAMIS verification.</p></div></div> : null}
 
+      <p className="strip-label">Before you can register</p>
       <div className="registration-prerequisites">
         <button className={/^\d{9}$/.test(profile.tin) ? "done" : ""} onClick={onOpenProfile}><b>1</b><span><strong>Get TIN</strong><small>{profile.tin ? `TIN ${profile.tin}` : "Add your nine-digit TIN"}</small></span></button>
         <button className={profile.irdPinStatus === "ACTIVE" ? "done" : ""} onClick={onOpenProfile}><b>2</b><span><strong>Activate PIN / SSID</strong><small>{profile.irdPinStatus.replaceAll("_", " ").toLowerCase()}</small></span></button>
@@ -87,6 +91,7 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile,
         <a href={VAT_REGISTRATION_SOURCES.eServices} target="_blank" rel="noreferrer"><b>4</b><span><strong>Human submits in IRD</strong><small>Open official e-Services ↗</small></span></a>
       </div>
 
+      <p className="strip-label">Application sections</p>
       <div className="registration-stepper" aria-label="VAT registration steps">
         {STEPS.map((label, index) => <button key={label} className={`${step === index ? "active" : ""}${index < step ? " complete" : ""}`} onClick={() => setStep(index)}><span>{index < step ? "✓" : index + 1}</span>{label}</button>)}
       </div>
