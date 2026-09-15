@@ -6086,3 +6086,15 @@ td small {
   font-size: 10.5px;
   font-style: normal;
 }
+
+/* A value that was supplied but is the wrong shape reads differently from one
+   that was never given: the first is a mistake to correct, the second a
+   question still to answer. */
+.field-problem {
+  margin-top: 3px;
+  color: var(--red);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.schedule-review-card { min-width: 0; }

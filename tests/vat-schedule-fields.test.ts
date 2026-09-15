@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { collectedFields, SCHEDULE_CODES, SCHEDULE_SPECS, scheduleHeaders, scheduleSpec } from "../lib/vat-schedule-fields";
+import { collectedFields, detailValueProblem, SCHEDULE_CODES, SCHEDULE_SPECS, scheduleHeaders, scheduleSpec } from "../lib/vat-schedule-fields";
 import { buildOfficialScheduleCsv, scheduleRowGaps } from "../lib/vat-schedule-export";
 import type { VatScheduleDetail, VatTransaction } from "../lib/workspace/workspace";
 
@@ -164,5 +164,55 @@ describe("building a schedule from the spec", () => {
 
   it("returns a header-only file for a schedule nothing maps to", () => {
     expect(rows(buildOfficialScheduleCsv([transaction({})], "04"))).toHaveLength(1);
+  });
+});
+
+describe("checking a supplied value, not just its presence", () => {
+  const dateField = collectedFields("03").find((f) => f.key === "cusdecDate")!;
+  const numberField = collectedFields("03").find((f) => f.key === "vatUpfront")!;
+  const textField = collectedFields("03").find((f) => f.key === "cusdecNo")!;
+  const optional = collectedFields("06").find((f) => f.key === "nrfcAccount")!;
+
+  it("accepts a real date and rejects text that merely fills the box", () => {
+    // The failure this closes: a non-blank box passes a presence check, builds
+    // a schedule that looks ready, and is refused by IRD.
+    expect(detailValueProblem(dateField, "2026-10-02")).toBeNull();
+    expect(detailValueProblem(dateField, "abc")).toMatch(/YYYY-MM-DD/);
+    expect(detailValueProblem(dateField, "02/10/2026")).toMatch(/YYYY-MM-DD/);
+  });
+
+  it("rejects a date that is well-formed but not real", () => {
+    expect(detailValueProblem(dateField, "2026-02-30")).toMatch(/not a real date/);
+    expect(detailValueProblem(dateField, "2026-13-01")).toMatch(/not a real date|YYYY-MM-DD/);
+  });
+
+  it("requires numbers to be numbers, and not negative", () => {
+    expect(detailValueProblem(numberField, "36000")).toBeNull();
+    expect(detailValueProblem(numberField, "0")).toBeNull();
+    expect(detailValueProblem(numberField, "302.4567")).toBeNull();
+    expect(detailValueProblem(numberField, "lots")).toMatch(/must be a number/);
+    expect(detailValueProblem(numberField, "-5")).toMatch(/cannot be negative/);
+  });
+
+  it("asks again for a required field left blank", () => {
+    expect(detailValueProblem(textField, "")).toMatch(/is required/);
+    expect(detailValueProblem(textField, "   ")).toMatch(/is required/);
+  });
+
+  it("lets an optional field stay empty, but still checks it when supplied", () => {
+    expect(detailValueProblem(optional, "")).toBeNull();
+    expect(detailValueProblem(optional, "NRFC-99")).toBeNull();
+  });
+
+  it("surfaces a badly shaped value through the row gaps, so the build stays blocked", () => {
+    const anImport = transaction({ id: "IMP", kind: "INPUT_IMPORT", scheduleCode: "03" });
+    const details = [detail("IMP", "03", {
+      cusdecDate: "not-a-date", cusdecNo: "CUS-1", vatDeferred: "0", vatUpfront: "36000",
+      cusdecSerialId: "S-1", cusdecOfficeId: "OF-1", cusdecRegDate: "2026-10-03",
+    })];
+    const gaps = scheduleRowGaps([anImport], "03", details);
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].missing.map((f) => f.key)).toEqual(["cusdecDate"]);
+    expect(gaps[0].missing[0].problem).toMatch(/YYYY-MM-DD/);
   });
 });

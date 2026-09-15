@@ -1,5 +1,5 @@
 import { calculateVat, summariseVatPeriod } from "./vat-operations";
-import { collectedFields, scheduleHeaders, scheduleSpec } from "./vat-schedule-fields";
+import { collectedFields, detailValueProblem, scheduleHeaders, scheduleSpec } from "./vat-schedule-fields";
 import type { BusinessProfile, VatPeriodRecord, VatScheduleCode, VatScheduleDetail, VatScheduleIssue, VatTransaction } from "./workspace/workspace";
 
 export type ScheduleCode = Exclude<VatTransaction["scheduleCode"], "NONE">;
@@ -57,7 +57,7 @@ export type ScheduleRowGap = {
   invoiceNumber: string;
   invoiceDate: string;
   counterpartyName: string;
-  missing: { key: string; header: string; input: "text" | "date" | "number"; hint: string }[];
+  missing: { key: string; header: string; input: "text" | "date" | "number"; hint: string; problem: string }[];
 };
 
 function detailsFor(details: VatScheduleDetail[], transactionId: string, code: VatScheduleCode) {
@@ -76,14 +76,17 @@ export function scheduleRowGaps(
   code: VatScheduleCode,
   details: VatScheduleDetail[] = [],
 ): ScheduleRowGap[] {
-  const needed = collectedFields(code).filter((field) => field.required);
-  if (!needed.length) return [];
+  // Optional fields are checked too: an optional value that was supplied badly
+  // is still a value that will be written into the file.
+  const fields = collectedFields(code);
+  if (!fields.length) return [];
   return transactionsForSchedule(transactions, code)
     .map((item, index) => {
       const values = detailsFor(details, item.id, code);
-      const missing = needed
-        .filter((field) => String(values[field.key] ?? "").trim() === "")
-        .map(({ key, header, input, hint }) => ({ key, header, input, hint }));
+      const missing = fields
+        .map((field) => ({ field, problem: detailValueProblem(field, String(values[field.key] ?? "")) }))
+        .filter((entry): entry is { field: typeof entry.field; problem: string } => entry.problem !== null)
+        .map(({ field, problem }) => ({ key: field.key, header: field.header, input: field.input, hint: field.hint, problem }));
       return {
         transactionId: item.id,
         rowNumber: index + 1,

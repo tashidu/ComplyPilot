@@ -196,3 +196,38 @@ export function collectedFields(code: VatScheduleCode): CollectedField[] {
 export function scheduleHeaders(code: VatScheduleCode): string[] {
   return scheduleSpec(code).fields.map((field) => field.header);
 }
+
+/**
+ * Why a supplied value is not usable, or null when it is.
+ *
+ * A non-empty box is not the same as an answered question. A date typed as
+ * free text or an amount typed as a word passes an "is it blank" check, builds
+ * a schedule that looks ready, and is rejected by IRD - which earns a Notice 2,
+ * and a Notice 2 restarts the 45-day refund clock. So the shape is checked
+ * where the value enters, not where it is written out.
+ */
+export function detailValueProblem(field: CollectedField, raw: string): string | null {
+  const value = raw.trim();
+  if (!value) return field.required ? `${field.header} is required.` : null;
+
+  if (field.input === "date") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${field.header} must be a date in YYYY-MM-DD form.`;
+    const parsed = new Date(`${value}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) {
+      return `${field.header} is not a real date.`;
+    }
+    return null;
+  }
+
+  if (field.input === "number") {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return `${field.header} must be a number.`;
+    // Every collected number here is a quantity, a value or a rate. None of
+    // them is meaningfully negative, and a minus sign is far more likely to be
+    // a typo than an intent.
+    if (parsed < 0) return `${field.header} cannot be negative.`;
+    return null;
+  }
+
+  return null;
+}

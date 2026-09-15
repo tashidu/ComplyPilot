@@ -166,7 +166,9 @@ export function VatSchedulesView({
                       placeholder={field.hint}
                       onChange={(event) => edit(gap.transactionId, field.key, event.target.value)}
                     />
-                    <small className="field-hint">{field.hint}</small>
+                    <small className={field.problem.includes("is required") ? "field-hint" : "field-problem"}>
+                      {field.problem.includes("is required") ? field.hint : field.problem}
+                    </small>
                   </label>
                 ))}
               </div>

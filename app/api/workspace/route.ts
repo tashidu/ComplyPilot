@@ -8,7 +8,7 @@ import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationRead
 import { calculateInvoiceLine, calculateVat, invoiceSerial, resolveTransactionVat, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
 import { issueBlocker, voidBlocker } from "@/lib/vat-invoice-register";
 import { officialScheduleFileName, scheduleRowGaps, transactionsForSchedule, validateOfficialSchedule, vatPeriodCode } from "@/lib/vat-schedule-export";
-import { collectedFields } from "@/lib/vat-schedule-fields";
+import { collectedFields, detailValueProblem } from "@/lib/vat-schedule-fields";
 import {
   activeProfile,
   createId,
@@ -477,6 +477,9 @@ export async function POST(req: Request) {
         // the ledger line behind would have the return declare tax on a supply
         // the business has withdrawn.
         vatTransactions: workspace.vatTransactions.filter((item) => !isLedgerLineFor(item, invoice)),
+        vatScheduleDetails: workspace.vatScheduleDetails.filter(
+          (detail) => !workspace.vatTransactions.some((item) => item.id === detail.transactionId && isLedgerLineFor(item, invoice)),
+        ),
         updatedAt: now,
       };
     } else if (input.action === "delete_vat_transaction") {
@@ -496,6 +499,9 @@ export async function POST(req: Request) {
       workspace = {
         ...workspace,
         vatTransactions: workspace.vatTransactions.filter((item) => item.id !== transaction.id),
+        // The schedule details belonged to this row. Left behind they are dead
+        // weight that follows the workspace around for good.
+        vatScheduleDetails: workspace.vatScheduleDetails.filter((item) => item.transactionId !== transaction.id),
         updatedAt: now,
       };
     } else if (input.action === "save_vat_registration") {
@@ -709,8 +715,8 @@ export async function POST(req: Request) {
       const profile = findProfile(workspace, input.profileId);
       // Only keys this schedule actually asks for are stored. A caller cannot
       // widen a row into a bag of arbitrary fields that later appear in a file.
-      const allowed = new Set(collectedFields(input.code).map((field) => field.key));
-      const now2 = now;
+      const fields = collectedFields(input.code);
+      const allowed = new Map(fields.map((field) => [field.key, field]));
       let details = workspace.vatScheduleDetails;
       for (const entry of input.entries) {
         const transaction = workspace.vatTransactions.find(
@@ -721,15 +727,25 @@ export async function POST(req: Request) {
         if (period?.status === "APPROVED" || period?.status === "SUBMITTED") {
           throw new WorkspaceRequestError("This VAT period is closed, so its schedule details can no longer be edited.");
         }
-        const clean = Object.fromEntries(
-          Object.entries(entry.values).filter(([key]) => allowed.has(key)),
-        ) as Record<string, string>;
+        // Rejected here rather than written and discovered at the file. A date
+        // that is not a date passes an "is it blank" check and produces a
+        // schedule that looks ready right up until IRD refuses it.
+        const clean: Record<string, string> = {};
+        for (const [key, value] of Object.entries(entry.values)) {
+          const field = allowed.get(key);
+          if (!field) continue;
+          const problem = detailValueProblem(field, value);
+          // A blank is allowed through: it clears a value the user is revising,
+          // and scheduleRowGaps will ask for it again before the build.
+          if (problem && value.trim() !== "") throw new WorkspaceRequestError(problem);
+          clean[key] = value.trim();
+        }
         const existing = details.find((item) => item.transactionId === entry.transactionId && item.code === input.code);
         details = existing
           ? details.map((item) =>
-              item === existing ? { ...item, values: { ...item.values, ...clean }, updatedAt: now2 } : item,
+              item === existing ? { ...item, values: { ...item.values, ...clean }, updatedAt: now } : item,
             )
-          : [...details, { transactionId: entry.transactionId, code: input.code, values: clean, updatedAt: now2 }];
+          : [...details, { transactionId: entry.transactionId, code: input.code, values: clean, updatedAt: now }];
       }
       workspace = { ...workspace, vatScheduleDetails: details, updatedAt: now };
     } else if (input.action === "approve_vat_schedule") {
