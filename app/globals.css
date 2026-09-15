@@ -40,6 +40,13 @@
   --t2: #5c4f30;
   --t3: #85764f;
 
+  /* Deliberately dark chrome - the copilot header, its launcher, toasts,
+     tooltips. It must NOT flip with the theme the way --t1 does, or the
+     white text sitting on it lands on a white ground. */
+  --inverse: #241a06;
+  --inverse-t: #fdf8ec;
+  --inverse-t2: #b9ab8b;
+
   /* Gold: the dominant brand colour. --primary is the darkened, text-safe
      shade; --primary-solid is the vivid fill. Tints (*-c) are deliberately
      a real gold tint, not a near-invisible wash barely different from the
@@ -143,6 +150,12 @@
   --t1: #f7f1e0;
   --t2: #cbbb92;
   --t3: #998a63;
+
+  /* Still dark in dark mode, just deeper than the surfaces around it so the
+     chrome reads as chrome rather than as another panel. */
+  --inverse: #100c06;
+  --inverse-t: #f7f1e0;
+  --inverse-t2: #9c8f70;
 
   /* Gold stays gold in dark mode too - a warm, bright accent against the
      dark ground, with dark text on its fill since the fill itself is light. */
@@ -1287,7 +1300,7 @@ button {
 }
 
 .chip.attention {
-  background: var(--t1);
+  background: var(--inverse);
   color: var(--primary-h);
 }
 
@@ -2314,7 +2327,7 @@ td small {
 }
 
 .audit-dot.human {
-  background: var(--t1);
+  background: var(--inverse);
 }
 
 .audit-copy strong {
@@ -2339,8 +2352,8 @@ td small {
   gap: 9px;
   padding: 11px 17px;
   border-radius: 999px;
-  color: #fff;
-  background: var(--t1);
+  color: var(--inverse-t);
+  background: var(--inverse);
   font-size: 13px;
   transform: translate(-50%, 16px);
   opacity: 0;
@@ -2430,10 +2443,10 @@ td small {
   align-items: center;
   gap: 9px;
   padding: 8px 14px 8px 8px;
-  border: 1px solid var(--t1);
+  border: 0;
   border-radius: 999px;
-  background: var(--t1);
-  color: #fff;
+  background: var(--inverse);
+  color: var(--inverse-t);
   box-shadow: 0 10px 30px rgba(28, 26, 18, 0.2);
   font-size: 13px;
   font-weight: 700;
@@ -2441,6 +2454,7 @@ td small {
 
 .copilot-launcher:hover {
   background: #000;
+  color: #fff;
 }
 
 .copilot-launcher-mark,
@@ -2480,9 +2494,9 @@ td small {
   align-items: center;
   gap: 10px;
   padding: 14px 15px;
-  border-bottom: 1px solid var(--line);
-  background: var(--t1);
-  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--inverse);
+  color: var(--inverse-t);
 }
 
 .copilot-mark {
@@ -2500,7 +2514,7 @@ td small {
 }
 
 .copilot-head span {
-  color: #c9c5b7;
+  color: var(--inverse-t2);
   font-size: 11px;
 }
 
@@ -2511,7 +2525,7 @@ td small {
   border: 0;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  color: var(--inverse-t);
   font-size: 21px;
   line-height: 1;
 }
@@ -3545,7 +3559,9 @@ td small {
   position: sticky;
   top: 84px;
   padding: 28px;
-  border: 1px solid var(--line);
+  /* Deliberately a printed page: its palette is fixed print ink, not theme
+     tokens, so it looks the same on screen as it does on paper. */
+  border: 1px solid #e4e4e4;
   background: white;
   box-shadow: var(--e1);
   color: #171717;
@@ -5119,18 +5135,17 @@ td small {
   width: 26px;
   height: 26px;
   margin-right: 2px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--t2);
+  border: 0;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--inverse-t);
   font-size: 13px;
   line-height: 1;
 }
 
 .copilot-expand:hover {
-  border-color: var(--primary);
-  background: var(--primary-c);
-  color: var(--t1);
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 
 .copilot-panel.expanded {
