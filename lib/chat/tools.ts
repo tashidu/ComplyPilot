@@ -9,6 +9,8 @@ import {
 import { governmentSources, vatInvoiceRulePack, vatRates } from "../government-data";
 import { selectInvoiceRuleProfile } from "../rules/rule-selection";
 import { resolveInvoiceDirection } from "../rules/invoice-direction";
+import { filterInvoices, summariseInvoices } from "../vat-invoice-register";
+import { transactionsForSchedule, validateOfficialSchedule } from "../vat-schedule-export";
 import type { AnalyzeResult } from "../types";
 import type { BusinessWorkspace } from "../workspace/workspace";
 
@@ -121,6 +123,31 @@ export const TOOL_DEFINITIONS = [
   {
     type: "function" as const,
     function: {
+      name: "find_invoices",
+      description:
+        "Search the tax invoices this business has generated, by number, purchaser, TIN or status, and get the register totals. Use for questions about what has been issued, what is still draft, and what was voided. Void invoices are excluded from the money totals.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Invoice number, purchaser name, TIN or classification code. Omit to list all." },
+          status: { type: "string", enum: ["ALL", "DRAFT", "ISSUED", "VOID"] },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_schedule_status",
+      description:
+        "State of the official IRD Schedule 01 and 02 for the active period: how many rows each carries, whether a batch has been built and approved, and every validation issue blocking it. Use for questions about whether the schedules are ready to file and what is stopping them.",
+      parameters: { type: "object", properties: {}, required: [] },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "draft_tax_invoice",
       description:
         "Prepare a compliant tax invoice for the user to review and save. Issues nothing. Use when the user asks to create or generate an invoice.",
@@ -186,6 +213,34 @@ const LineSchema = z.object({
   unitPriceLkr: z.number().finite().min(0),
 });
 
+/** The profile the copilot is answering for. */
+function activeProfileOf(ctx: ToolContext) {
+  return (
+    ctx.workspace.profiles.find((item) => item.id === ctx.workspace.activeProfileId) ??
+    ctx.workspace.profiles[0]
+  );
+}
+
+function activePeriod(ctx: ToolContext) {
+  const profile = activeProfileOf(ctx);
+  return ctx.workspace.periods.find((item) => item.id === profile?.activePeriodId);
+}
+
+/**
+ * This profile's transactions in its active period.
+ *
+ * Every figure the copilot quotes has to be scoped the same way the VAT return
+ * is, or it answers a question about October with a number covering every
+ * period the business has ever recorded.
+ */
+function periodTransactions(ctx: ToolContext) {
+  const profile = activeProfileOf(ctx);
+  const period = activePeriod(ctx);
+  return ctx.workspace.vatTransactions.filter(
+    (item) => item.profileId === profile?.id && item.periodId === period?.id,
+  );
+}
+
 export function runTool(name: string, rawArgs: unknown, ctx: ToolContext): ToolResult {
   const args = (rawArgs ?? {}) as Record<string, any>;
   const profile =
@@ -224,10 +279,15 @@ export function runTool(name: string, rawArgs: unknown, ctx: ToolContext): ToolR
     }
 
     case "get_period_position": {
-      const summary = summariseVatPeriod((ctx.workspace.vatTransactions ?? []) as never);
+      // Scoped to this profile's active period. Summing every transaction in
+      // the workspace would answer "what is my output VAT" with an all-time,
+      // all-businesses total - a number that is wrong in a way nobody reading
+      // the reply would catch.
+      const summary = summariseVatPeriod(periodTransactions(ctx));
       return {
         content: JSON.stringify({
           ...summary,
+          period: activePeriod(ctx)?.label ?? "no active period",
           position:
             summary.excessInputCreditLkr > 0
               ? `Excess input credit of ${money(summary.excessInputCreditLkr)} - a refund position.`
@@ -275,6 +335,69 @@ export function runTool(name: string, rawArgs: unknown, ctx: ToolContext): ToolR
         content: JSON.stringify(
           resolveInvoiceDirection(args.sellerTin, args.buyerTin, profile?.tin),
         ),
+      };
+    }
+
+    case "find_invoices": {
+      const profile = activeProfileOf(ctx);
+      const all = ctx.workspace.generatedInvoices.filter((item) => item.profileId === profile?.id);
+      const matches = filterInvoices(all, { query: args.query, status: args.status ?? "ALL" });
+      return {
+        content: JSON.stringify({
+          register: summariseInvoices(all),
+          matchCount: matches.length,
+          // Capped: the model needs enough to answer, not the whole register
+          // pasted into its context.
+          invoices: matches.slice(0, 20).map((item) => ({
+            invoiceNumber: item.invoiceNumber,
+            invoiceDate: item.invoiceDate,
+            status: item.status,
+            purchaserName: item.purchaserName,
+            purchaserTin: item.purchaserTin,
+            treatment: item.treatment,
+            netTotalLkr: item.netTotalLkr,
+            vatTotalLkr: item.vatTotalLkr,
+            grossTotalLkr: item.grossTotalLkr,
+            voidReason: item.status === "VOID" ? item.voidReason : undefined,
+          })),
+          truncated: matches.length > 20,
+          note: "Void invoices stay listed but contribute nothing to the register money totals.",
+        }),
+      };
+    }
+
+    case "get_schedule_status": {
+      const profile = activeProfileOf(ctx);
+      const period = activePeriod(ctx);
+      if (!period) return { content: JSON.stringify({ error: "This profile has no active VAT period." }) };
+      const transactions = periodTransactions(ctx);
+      const batches = ctx.workspace.vatScheduleBatches.filter(
+        (item) => item.profileId === profile?.id && item.periodId === period.id,
+      );
+      const schedules = (["01", "02"] as const).map((code) => {
+        const rows = transactionsForSchedule(transactions, code);
+        const issues = validateOfficialSchedule(transactions, period, code);
+        const batch = batches.find((item) => item.code === code);
+        return {
+          code,
+          name: code === "01" ? "Output / sales" : "Local input / purchases",
+          rowCount: rows.length,
+          batchStatus: batch?.status ?? "NOT_BUILT",
+          submissionType: batch?.submissionType,
+          versionNumber: batch?.versionNumber,
+          fileName: batch?.fileName,
+          errors: issues.filter((issue) => issue.severity === "ERROR"),
+          warnings: issues.filter((issue) => issue.severity === "WARNING"),
+        };
+      });
+      return {
+        content: JSON.stringify({
+          period: period.label,
+          periodStatus: period.status,
+          schedules,
+          blocking: schedules.filter((item) => item.errors.length > 0).map((item) => item.code),
+          note: "Errors must be fixed in the ledger before a schedule is built. ComplyPilot prepares the file; an authorised person uploads it to e-Services.",
+        }),
       };
     }
 

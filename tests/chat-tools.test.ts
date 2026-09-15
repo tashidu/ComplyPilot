@@ -33,8 +33,10 @@ describe("the tool surface", () => {
       "check_invoice_direction",
       "draft_ledger_entry",
       "draft_tax_invoice",
+      "find_invoices",
       "get_case_position",
       "get_period_position",
+      "get_schedule_status",
       "lookup_rule",
     ]);
   });
@@ -157,5 +159,77 @@ describe("drafting a purchase", () => {
       ctx,
     );
     expect(r.proposal?.fields.scheduleCode).toBe("02");
+  });
+});
+
+/**
+ * A copilot grounded in the wrong rows is worse than one with no data: the
+ * numbers look authoritative and are quietly about the wrong period.
+ */
+const REGISTER_CTX = {
+  analysis: { score: { total: 0 }, workflow: { gate: "NEEDS_HUMAN" }, claimValueUnderReviewLkr: 0, findings: [] },
+  workspace: {
+    activeProfileId: "P1",
+    profiles: [{ id: "P1", tin: "134857291", activePeriodId: "PER-OCT" }],
+    periods: [
+      { id: "PER-OCT", profileId: "P1", label: "October 2026", status: "COLLECTING", startDate: "2026-10-01", endDate: "2026-10-31", frequency: "MONTHLY" },
+      { id: "PER-SEP", profileId: "P1", label: "September 2026", status: "SUBMITTED", startDate: "2026-09-01", endDate: "2026-09-30", frequency: "MONTHLY" },
+    ],
+    vatTransactions: [
+      { id: "T1", profileId: "P1", periodId: "PER-OCT", kind: "OUTPUT", treatment: "STANDARD_18", supplyType: "GOODS", invoiceNumber: "26OCT_BR01_1", invoiceDate: "2026-10-05", counterpartyName: "Lanka Foods", counterpartyTin: "200987654", description: "Goods", netAmountLkr: 100_000, vatRate: 18, vatAmountLkr: 18_000, grossAmountLkr: 118_000, disallowedInputVatLkr: 0, scheduleCode: "01", source: "MANUAL", createdAt: "" },
+      // A different period. Must never reach an answer about October.
+      { id: "T2", profileId: "P1", periodId: "PER-SEP", kind: "OUTPUT", treatment: "STANDARD_18", supplyType: "GOODS", invoiceNumber: "26SEP_BR01_1", invoiceDate: "2026-09-05", counterpartyName: "Old Buyer", counterpartyTin: "200987654", description: "Goods", netAmountLkr: 900_000, vatRate: 18, vatAmountLkr: 162_000, grossAmountLkr: 1_062_000, disallowedInputVatLkr: 0, scheduleCode: "01", source: "MANUAL", createdAt: "" },
+    ],
+    generatedInvoices: [
+      { id: "I1", profileId: "P1", periodId: "PER-OCT", invoiceNumber: "26OCT_BR01_1", invoiceDate: "2026-10-05", classificationCode: "BR01", treatment: "STANDARD_18", supplyType: "GOODS", purchaserName: "Lanka Foods", purchaserTin: "200987654", purchaserAddress: "Colombo", placeOfSupply: "", paymentMode: "", lines: [], netTotalLkr: 100_000, vatTotalLkr: 18_000, grossTotalLkr: 118_000, status: "ISSUED", issuedAt: "2026-10-06", voidedAt: null, voidReason: "", createdAt: "" },
+      { id: "I2", profileId: "P1", periodId: "PER-OCT", invoiceNumber: "26OCT_BR01_2", invoiceDate: "2026-10-09", classificationCode: "BR01", treatment: "STANDARD_18", supplyType: "GOODS", purchaserName: "Ceylon Retail", purchaserTin: "300112233", purchaserAddress: "Kandy", placeOfSupply: "", paymentMode: "", lines: [], netTotalLkr: 50_000, vatTotalLkr: 9_000, grossTotalLkr: 59_000, status: "VOID", issuedAt: null, voidedAt: "2026-10-10", voidReason: "Wrong purchaser TIN", createdAt: "" },
+    ],
+    vatScheduleBatches: [],
+  },
+} as never;
+
+describe("the period a figure describes", () => {
+  it("answers about the active period, not every period on record", () => {
+    const r = parse(runTool("get_period_position", {}, REGISTER_CTX).content);
+    expect(r.period).toBe("October 2026");
+    // 18,000 from October alone. September's 162,000 is a different return.
+    expect(r.outputVatLkr).toBe(18_000);
+  });
+});
+
+describe("find_invoices", () => {
+  it("returns the register totals with void invoices excluded from the money", () => {
+    const r = parse(runTool("find_invoices", {}, REGISTER_CTX).content);
+    expect(r.register).toMatchObject({ total: 2, issuedCount: 1, voidCount: 1 });
+    expect(r.register.vatTotalLkr).toBe(18_000);
+  });
+
+  it("still lists a voided invoice, with the reason it was withdrawn", () => {
+    const r = parse(runTool("find_invoices", { status: "VOID" }, REGISTER_CTX).content);
+    expect(r.matchCount).toBe(1);
+    expect(r.invoices[0]).toMatchObject({ invoiceNumber: "26OCT_BR01_2", voidReason: "Wrong purchaser TIN" });
+  });
+
+  it("searches by purchaser as well as by number", () => {
+    expect(parse(runTool("find_invoices", { query: "ceylon" }, REGISTER_CTX).content).matchCount).toBe(1);
+    expect(parse(runTool("find_invoices", { query: "26OCT_BR01_1" }, REGISTER_CTX).content).matchCount).toBe(1);
+    expect(parse(runTool("find_invoices", { query: "nothing here" }, REGISTER_CTX).content).matchCount).toBe(0);
+  });
+});
+
+describe("get_schedule_status", () => {
+  it("reports both schedules, scoped to the active period", () => {
+    const r = parse(runTool("get_schedule_status", {}, REGISTER_CTX).content);
+    expect(r.period).toBe("October 2026");
+    expect(r.schedules.map((s: any) => s.code)).toEqual(["01", "02"]);
+    expect(r.schedules[0]).toMatchObject({ rowCount: 1, batchStatus: "NOT_BUILT", errors: [] });
+  });
+
+  it("names what is blocking a schedule rather than only that it is blocked", () => {
+    const broken = JSON.parse(JSON.stringify(REGISTER_CTX));
+    broken.workspace.vatTransactions[0].counterpartyTin = "123";
+    const r = parse(runTool("get_schedule_status", {}, broken as never).content);
+    expect(r.blocking).toContain("01");
+    expect(r.schedules[0].errors[0].message).toMatch(/nine digits/);
   });
 });

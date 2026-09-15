@@ -6,6 +6,9 @@ import { recallRun } from "@/lib/runs/run-store";
 import { consumeRate, getSession, rateLimited, withSession } from "@/lib/http/session";
 import { getOrCreateWorkspace } from "@/lib/workspace/workspace-store";
 import { activeProfile, type BusinessWorkspace } from "@/lib/workspace/workspace";
+import { providerLabel, resolveProvider } from "@/lib/ai/providers";
+import { summariseInvoices } from "@/lib/vat-invoice-register";
+import { transactionsForSchedule, validateOfficialSchedule } from "@/lib/vat-schedule-export";
 import { TOOL_DEFINITIONS, runTool, type ToolProposal } from "@/lib/chat/tools";
 import { buildVatDocumentChecklist, registrationReadiness, turnoverAssessment, VAT_REGISTRATION_THRESHOLDS } from "@/lib/vat-registration";
 import { summariseVatPeriod } from "@/lib/vat-operations";
@@ -142,7 +145,26 @@ function registrationContext(workspace: BusinessWorkspace) {
     activePeriod: period ? { id: period.id, label: period.label, status: period.status } : null,
     vatLedgerSummary: summariseVatPeriod(transactions),
     recentVatTransactions: transactions.slice(0, 10),
-    generatedInvoiceCount: workspace.generatedInvoices.filter((item) => item.profileId === profile.id).length,
+    // The register and the schedules are in the opening context, not only
+    // behind a tool call: "is anything blocking my filing" is the question
+    // users actually open the copilot with, and it should not take a round
+    // trip to notice that a schedule has errors on it.
+    invoiceRegister: summariseInvoices(workspace.generatedInvoices.filter((item) => item.profileId === profile.id)),
+    officialSchedules: period
+      ? (["01", "02"] as const).map((code) => {
+          const batch = workspace.vatScheduleBatches.find(
+            (item) => item.profileId === profile.id && item.periodId === period.id && item.code === code,
+          );
+          const issues = validateOfficialSchedule(transactions, period, code);
+          return {
+            code,
+            rowCount: transactionsForSchedule(transactions, code).length,
+            batchStatus: batch?.status ?? "NOT_BUILT",
+            errorCount: issues.filter((issue) => issue.severity === "ERROR").length,
+            warningCount: issues.filter((issue) => issue.severity === "WARNING").length,
+          };
+        })
+      : [],
   };
 }
 
@@ -307,14 +329,15 @@ export async function POST(request: Request) {
 
     const question = [...messages].reverse().find((message) => message.role === "user")?.content ?? "";
     const sources = selectSources(question);
-    const apiKey = process.env.DASHSCOPE_API_KEY;
+    const chatProvider = resolveProvider("chat");
 
-    if (!apiKey) {
+    if (!chatProvider) {
       return withSession(
         {
           answer: fallbackAnswer(question, stored.analysis, workspace),
           mode: "DEMO_FALLBACK",
-          fallbackReason: "DASHSCOPE_API_KEY is not set, so a deterministic grounded answer was used.",
+          fallbackReason:
+            "No conversational model is configured (set OPENAI_API_KEY or DASHSCOPE_API_KEY), so a deterministic grounded answer was used.",
           sources,
         },
         session,
@@ -322,9 +345,13 @@ export async function POST(request: Request) {
     }
 
     try {
+      // The copilot runs on whichever model is configured for conversation -
+      // OpenAI when its key is present, Qwen otherwise. The tool surface and
+      // the deterministic functions behind it are identical either way, so the
+      // answer's arithmetic does not depend on which one answered.
       const client = new OpenAI({
-        apiKey,
-        baseURL: process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        apiKey: chatProvider.apiKey,
+        baseURL: chatProvider.baseURL,
         timeout: REQUEST_TIMEOUT_MS,
         maxRetries: 1,
       });
@@ -342,7 +369,7 @@ export async function POST(request: Request) {
 
       for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
         const response = await client.chat.completions.create({
-          model: process.env.QWEN_CHAT_MODEL || "qwen-plus",
+          model: chatProvider.model,
           messages: conversation,
           tools: TOOL_DEFINITIONS,
           temperature: 0.15,
@@ -383,7 +410,11 @@ export async function POST(request: Request) {
       return withSession(
         {
           answer: answer.slice(0, 3_000),
-          mode: "LIVE_QWEN",
+          mode: "LIVE_MODEL",
+          // Named, not assumed. The copilot may be answering on either
+          // provider, and a badge that says Qwen while OpenAI answered is a
+          // claim about the system that happens to be false.
+          model: providerLabel(chatProvider),
           fallbackReason: null,
           sources,
           toolsUsed,
