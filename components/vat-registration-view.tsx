@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness, turnoverAssessment, VAT_REGISTRATION_SOURCES, VAT_REGISTRATION_THRESHOLDS } from "@/lib/vat-registration";
+import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness, turnoverAssessment, VAT_REGISTRATION_SOURCES, type TaxableActivityKind } from "@/lib/vat-registration";
 import type { BusinessProfile, BusinessWorkspace, VatRegistrationApplication, VatRegistrationBasis } from "@/lib/workspace/workspace";
 import { PageHead } from "./ui";
 
@@ -25,18 +25,24 @@ function money(value: number) {
   return new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", maximumFractionDigits: 0 }).format(value);
 }
 
-export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile }: {
+export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile, onConfirmRegistration }: {
   workspace: BusinessWorkspace;
   profile: BusinessProfile;
   onSave: (draft: RegistrationDraft) => Promise<boolean>;
   onOpenProfile: () => void;
+  onConfirmRegistration?: (effectiveDate: string, certificateReference: string) => Promise<boolean>;
 }) {
   const stored = workspace.vatRegistrations.find((item) => item.profileId === profile.id);
   const [step, setStep] = useState(0);
   const [draft, setDraft] = useState<RegistrationDraft>(() => editable(stored ?? createVatRegistrationDraft(profile)));
   const [saving, setSaving] = useState(false);
+  /** Financial services are liable on their own, much lower thresholds. */
+  const [activity, setActivity] = useState<TaxableActivityKind>("GENERAL");
+  const [effectiveDate, setEffectiveDate] = useState(profile.vatRegistrationEffectiveDate);
+  const [certificateReference, setCertificateReference] = useState(profile.vatRegistrationCertificateRef);
 
   useEffect(() => setDraft(editable(stored ?? createVatRegistrationDraft(profile))), [profile.id, stored?.updatedAt]);
+  useEffect(() => { setEffectiveDate(profile.vatRegistrationEffectiveDate); setCertificateReference(profile.vatRegistrationCertificateRef); }, [profile.id, profile.vatRegistrationEffectiveDate, profile.vatRegistrationCertificateRef]);
 
   const application = useMemo<VatRegistrationApplication>(() => ({
     ...draft,
@@ -46,7 +52,7 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile 
     updatedAt: stored?.updatedAt ?? new Date(0).toISOString(),
   }), [draft, profile.id, stored]);
   const readiness = useMemo(() => registrationReadiness(application, profile), [application, profile]);
-  const turnover = turnoverAssessment(draft.taxableSuppliesLastQuarterLkr, draft.estimatedTaxableSuppliesNext12MonthsLkr);
+  const turnover = turnoverAssessment(draft.taxableSuppliesLastQuarterLkr, draft.estimatedTaxableSuppliesNext12MonthsLkr, activity);
 
   function update<K extends keyof RegistrationDraft>(key: K, value: RegistrationDraft[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -72,6 +78,8 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile 
 
       <div className="registration-boundary"><strong>Preparation only</strong><span>ComplyPilot prepares and checks information. It does not create an IRD account, submit this application, or store your IRD password/PIN.</span></div>
 
+      {profile.vatRegistrationStatus === "ACTIVE" ? <div className="vat-active-banner"><span>✓</span><div><strong>VAT registration marked active</strong><p>TIN {profile.tin}{profile.vatRegistrationEffectiveDate ? ` · effective ${profile.vatRegistrationEffectiveDate}` : ""}{profile.vatRegistrationCertificateRef ? ` · reference ${profile.vatRegistrationCertificateRef}` : ""}. This is user-supplied profile data, not a live RAMIS verification.</p></div></div> : null}
+
       <div className="registration-prerequisites">
         <button className={/^\d{9}$/.test(profile.tin) ? "done" : ""} onClick={onOpenProfile}><b>1</b><span><strong>Get TIN</strong><small>{profile.tin ? `TIN ${profile.tin}` : "Add your nine-digit TIN"}</small></span></button>
         <button className={profile.irdPinStatus === "ACTIVE" ? "done" : ""} onClick={onOpenProfile}><b>2</b><span><strong>Activate PIN / SSID</strong><small>{profile.irdPinStatus.replaceAll("_", " ").toLowerCase()}</small></span></button>
@@ -89,9 +97,10 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile 
           <label className="span-two"><span>Registration basis</span><select value={draft.basis} onChange={(event) => chooseBasis(event.target.value as VatRegistrationBasis)}>{Object.entries(BASIS_LABELS).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           <label><span>Taxable supplies — latest quarter (LKR)</span><input type="number" min="0" value={draft.taxableSuppliesLastQuarterLkr} onChange={(event) => update("taxableSuppliesLastQuarterLkr", Number(event.target.value))} /></label>
           <label><span>Estimated taxable supplies — next 12 months (LKR)</span><input type="number" min="0" value={draft.estimatedTaxableSuppliesNext12MonthsLkr} onChange={(event) => update("estimatedTaxableSuppliesNext12MonthsLkr", Number(event.target.value))} /></label>
+          <label className="span-two"><span>Type of taxable activity</span><select value={activity} onChange={(event) => setActivity(event.target.value as TaxableActivityKind)}><option value="GENERAL">General goods and services</option><option value="FINANCIAL_SERVICES">Supply of financial services</option></select></label>
           <label className="span-two"><span>Why are you applying?</span><textarea rows={3} placeholder="Describe the business, registration basis and expected taxable activities." value={draft.reason} onChange={(event) => update("reason", event.target.value)} /></label>
         </div>
-        <div className={`eligibility-result ${turnover.mandatory ? "mandatory" : "optional"}`}><strong>{turnover.mandatory ? "Mandatory threshold may be met" : "Threshold not indicated by these values"}</strong><p>IRD currently states over {money(VAT_REGISTRATION_THRESHOLDS.quarterLkr)} per quarter or {money(VAT_REGISTRATION_THRESHOLDS.twelveMonthsLkr)} in 12 months. Voluntary registration may still be possible for taxable supplies.</p><small>Decision support only · confirm timing and classification with IRD or a tax professional.</small></div>
+        <div className={`eligibility-result ${turnover.mandatory ? "mandatory" : "optional"}`}><strong>{turnover.mandatory ? "Mandatory threshold may be met" : "Threshold not indicated by these values"}</strong><p>IRD currently states over {money(turnover.thresholds.quarterLkr)} per quarter or {money(turnover.thresholds.twelveMonthsLkr)} in 12 months for {activity === "FINANCIAL_SERVICES" ? "the supply of financial services" : "general goods and services"}. Importers and exporters of commercial goods must register regardless of turnover, and voluntary registration may still be possible.</p><small>Decision support only · confirm timing and classification with IRD or a tax professional.</small></div>
         <div className="form-actions"><button className="button primary" disabled={saving} onClick={() => void save(1)}>{saving ? "Saving…" : "Save & continue"}</button></div>
       </section> : null}
 
@@ -126,6 +135,7 @@ export function VatRegistrationView({ workspace, profile, onSave, onOpenProfile 
         <div className="registration-review-head"><div className="readiness-ring" style={{ "--progress": `${readiness.percentage * 3.6}deg` } as React.CSSProperties}><span>{readiness.percentage}%</span></div><div><span className="eyebrow">Application readiness</span><h2>{readiness.ready ? "Ready for human review" : `${readiness.total - readiness.completed} checks still need attention`}</h2><p>Review the gaps below before an authorised person enters the data in IRD e-Services.</p></div></div>
         <div className="readiness-list">{readiness.checks.map((check) => <button key={check.label} className={check.passed ? "passed" : "missing"} onClick={() => !check.passed && setStep(check.label.includes("evidence") ? 2 : check.label.includes("TIN") || check.label.includes("PIN") || check.label.includes("identity") ? 0 : 1)}><span>{check.passed ? "✓" : "!"}</span><strong>{check.label}</strong><small>{check.passed ? "Complete" : "Needs attention"}</small></button>)}</div>
         <div className="official-action"><div><strong>Final step stays human-controlled</strong><p>Download/open the official guidance, check the information, and submit through IRD e-Services. Do not share your IRD credentials with ComplyPilot.</p></div><a className="button primary" href={VAT_REGISTRATION_SOURCES.registration} target="_blank" rel="noreferrer">Open official IRD registration ↗</a></div>
+        {profile.vatRegistrationStatus !== "ACTIVE" ? <div className="registration-confirm"><div><span className="eyebrow">After IRD approves the registration</span><h3>Record the result</h3><p>This does not call RAMIS. It stores the confirmation reference supplied by the user.</p></div><label><span>Effective date</span><input type="date" value={effectiveDate} onChange={(event) => setEffectiveDate(event.target.value)} /></label><label><span>Certificate / acknowledgement reference</span><input value={certificateReference} onChange={(event) => setCertificateReference(event.target.value)} /></label><button className="button primary" disabled={!effectiveDate || certificateReference.trim().length < 3 || saving || !onConfirmRegistration} onClick={async () => { if (!onConfirmRegistration) return; setSaving(true); try { await onConfirmRegistration(effectiveDate, certificateReference); } finally { setSaving(false); } }}>Mark IRD registration confirmed</button></div> : null}
         <div className="form-actions"><button className="button" onClick={() => setStep(2)}>Back</button><button className="button primary" disabled={saving} onClick={() => void save()}>{saving ? "Saving…" : "Save registration pack"}</button></div>
       </section> : null}
     </>

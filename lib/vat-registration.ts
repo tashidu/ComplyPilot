@@ -1,11 +1,30 @@
 import type { BusinessEntityType, BusinessProfile, VatRegistrationApplication, VatRegistrationBasis, VatRegistrationDocument } from "./workspace/workspace";
 
+/**
+ * The registration thresholds in force, per IRD.
+ *
+ * Financial services sit on their own, much lower pair - 3m a quarter against
+ * 15m - and a business supplying them is liable far earlier than the general
+ * figures suggest. Testing such a business against the general threshold would
+ * tell it it is not yet liable while it already is, which is the expensive
+ * direction to be wrong in.
+ *
+ * PN/VAT/2026-03 confirmed the proposed reduction to the general thresholds was
+ * abandoned, so the 2024 figures still stand.
+ */
 export const VAT_REGISTRATION_THRESHOLDS = {
   quarterLkr: 15_000_000,
   twelveMonthsLkr: 60_000_000,
+  financialServices: {
+    quarterLkr: 3_000_000,
+    twelveMonthsLkr: 12_000_000,
+  },
   effectiveFrom: "2024-01-01",
   sourceId: "IRD-VAT-RATES",
 } as const;
+
+/** Which threshold pair applies. Financial services have their own. */
+export type TaxableActivityKind = "GENERAL" | "FINANCIAL_SERVICES";
 
 export const VAT_REGISTRATION_SOURCES = {
   guideline: "https://www.ird.gov.lk/en/Downloads/SiteAssets/TPR_Guidelines_2026_E.pdf",
@@ -127,10 +146,25 @@ export function registrationReadiness(application: VatRegistrationApplication, p
   };
 }
 
-export function turnoverAssessment(quarterLkr: number, twelveMonthsLkr: number) {
+export function thresholdsFor(activity: TaxableActivityKind = "GENERAL") {
+  return activity === "FINANCIAL_SERVICES"
+    ? VAT_REGISTRATION_THRESHOLDS.financialServices
+    : { quarterLkr: VAT_REGISTRATION_THRESHOLDS.quarterLkr, twelveMonthsLkr: VAT_REGISTRATION_THRESHOLDS.twelveMonthsLkr };
+}
+
+export function turnoverAssessment(
+  quarterLkr: number,
+  twelveMonthsLkr: number,
+  activity: TaxableActivityKind = "GENERAL",
+) {
+  const thresholds = thresholdsFor(activity);
+  const quarterExceeded = quarterLkr > thresholds.quarterLkr;
+  const twelveMonthsExceeded = twelveMonthsLkr > thresholds.twelveMonthsLkr;
   return {
-    mandatory: quarterLkr > VAT_REGISTRATION_THRESHOLDS.quarterLkr || twelveMonthsLkr > VAT_REGISTRATION_THRESHOLDS.twelveMonthsLkr,
-    quarterExceeded: quarterLkr > VAT_REGISTRATION_THRESHOLDS.quarterLkr,
-    twelveMonthsExceeded: twelveMonthsLkr > VAT_REGISTRATION_THRESHOLDS.twelveMonthsLkr,
+    activity,
+    thresholds,
+    mandatory: quarterExceeded || twelveMonthsExceeded,
+    quarterExceeded,
+    twelveMonthsExceeded,
   };
 }
