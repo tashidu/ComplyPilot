@@ -10,6 +10,7 @@ export type ViewId =
   | "vat-registration"
   | "ramis-api"
   | "vat-ledger"
+  | "vat-schedules"
   | "invoice-builder"
   | "invoice-register"
   | "vat-return"
@@ -40,6 +41,7 @@ const NAV: { label: string; items: { id: ViewId; label: string }[] }[] = [
     label: "VAT operations",
     items: [
       { id: "vat-ledger", label: "Input & output VAT" },
+      { id: "vat-schedules", label: "IRD VAT schedules" },
       { id: "invoice-builder", label: "Create VAT invoice" },
       { id: "invoice-register", label: "Invoice register" },
       { id: "vat-return", label: "Prepare VAT return" },

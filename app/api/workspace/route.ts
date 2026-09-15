@@ -7,6 +7,7 @@ import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-s
 import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
 import { calculateInvoiceLine, calculateVat, invoiceSerial, resolveTransactionVat, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
 import { issueBlocker, voidBlocker } from "@/lib/vat-invoice-register";
+import { officialScheduleFileName, transactionsForSchedule, validateOfficialSchedule, vatPeriodCode } from "@/lib/vat-schedule-export";
 import {
   activeProfile,
   createId,
@@ -21,6 +22,8 @@ import {
   type VatPeriodRecord,
   type GeneratedVatInvoice,
   type VatTransaction,
+  type VatScheduleBatch,
+  type VatScheduleCode,
 } from "@/lib/workspace/workspace";
 
 export const runtime = "nodejs";
@@ -221,6 +224,20 @@ const WorkspaceAction = z.discriminatedUnion("action", [
     acknowledgement: z.string().trim().min(4).max(120),
     readinessScore: z.number().int().min(0).max(100),
     submittedBy: z.string().trim().min(2).max(100),
+  }),
+  z.object({
+    action: z.literal("build_vat_schedules"),
+    profileId: z.string().min(1).max(100),
+    periodId: z.string().min(1).max(100),
+  }),
+  z.object({
+    action: z.literal("approve_vat_schedule"),
+    batchId: z.string().min(1).max(100),
+    reviewer: z.string().trim().min(2).max(100),
+  }),
+  z.object({
+    action: z.literal("confirm_schedule_verification"),
+    batchId: z.string().min(1).max(100),
   }),
 ]);
 
@@ -625,6 +642,56 @@ export async function POST(req: Request) {
           candidate.id === period.id ? { ...candidate, status: "SUBMITTED", lastActivityAt: now } : candidate,
         ),
         submissions: [submission, ...workspace.submissions],
+        updatedAt: now,
+      };
+    } else if (input.action === "build_vat_schedules") {
+      const profile = findProfile(workspace, input.profileId);
+      const period = findPeriod(workspace, input.periodId);
+      if (period.profileId !== profile.id) throw new WorkspaceRequestError("That VAT period belongs to another business.");
+      if (!/^\d{9}$/.test(profile.tin)) throw new WorkspaceRequestError("Save the business's nine-digit TIN before building IRD schedules.");
+      const periodTransactions = workspace.vatTransactions.filter((item) => item.periodId === period.id && item.profileId === profile.id);
+      const rebuilt = (["01", "02"] as VatScheduleCode[]).map((code): VatScheduleBatch => {
+        const rows = transactionsForSchedule(periodTransactions, code);
+        const issues = validateOfficialSchedule(periodTransactions, period, code);
+        const previous = workspace.vatScheduleBatches.find((item) => item.profileId === profile.id && item.periodId === period.id && item.code === code);
+        const amendment = previous?.status === "APPROVED" || previous?.status === "IRD_VERIFIED";
+        const versionNumber = amendment ? previous.versionNumber + 1 : previous?.versionNumber ?? 1;
+        const submissionType = amendment ? "AMENDMENT" as const : previous?.submissionType ?? "ORIGINAL" as const;
+        return {
+          id: previous?.id ?? createId("VATSCH"), profileId: profile.id, periodId: period.id, code,
+          submissionType, versionNumber, templateVersion: "1.8", periodCode: vatPeriodCode(period),
+          fileName: officialScheduleFileName(profile, period, code, now.slice(0, 10), submissionType, versionNumber),
+          status: issues.some((issue) => issue.severity === "ERROR") ? "NEEDS_REVIEW" : "READY",
+          sourceTransactionIds: rows.map((item) => item.id), rowCount: rows.length,
+          netTotalLkr: rows.reduce((sum, item) => sum + item.netAmountLkr, 0),
+          vatTotalLkr: rows.reduce((sum, item) => sum + item.vatAmountLkr, 0),
+          disallowedVatTotalLkr: code === "02" ? rows.reduce((sum, item) => sum + item.disallowedInputVatLkr, 0) : 0,
+          issues, approvedBy: null, approvedAt: null, verifiedAt: null,
+          createdAt: previous?.createdAt ?? now, updatedAt: now,
+        };
+      });
+      const replaced = new Set(rebuilt.map((item) => `${item.periodId}:${item.code}`));
+      workspace = {
+        ...workspace,
+        vatScheduleBatches: [...rebuilt, ...workspace.vatScheduleBatches.filter((item) => !replaced.has(`${item.periodId}:${item.code}`))],
+        updatedAt: now,
+      };
+    } else if (input.action === "approve_vat_schedule") {
+      const batch = workspace.vatScheduleBatches.find((item) => item.id === input.batchId);
+      if (!batch) throw new WorkspaceRequestError("That schedule build does not exist.");
+      if (batch.issues.some((issue) => issue.severity === "ERROR")) throw new WorkspaceRequestError("Resolve the blocking schedule errors before approval.");
+      workspace = {
+        ...workspace,
+        vatScheduleBatches: workspace.vatScheduleBatches.map((item) => item.id === batch.id ? { ...item, status: "APPROVED", approvedBy: input.reviewer, approvedAt: now, verifiedAt: null, updatedAt: now } : item),
+        updatedAt: now,
+      };
+    } else if (input.action === "confirm_schedule_verification") {
+      const batch = workspace.vatScheduleBatches.find((item) => item.id === input.batchId);
+      if (!batch) throw new WorkspaceRequestError("That schedule build does not exist.");
+      if (batch.status !== "APPROVED") throw new WorkspaceRequestError("Approve the schedule before recording the external IRD verifier result.");
+      workspace = {
+        ...workspace,
+        vatScheduleBatches: workspace.vatScheduleBatches.map((item) => item.id === batch.id ? { ...item, status: "IRD_VERIFIED", verifiedAt: now, updatedAt: now } : item),
         updatedAt: now,
       };
     }

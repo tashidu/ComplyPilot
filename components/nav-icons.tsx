@@ -56,6 +56,13 @@ const ICONS: Record<ViewId, React.ReactNode> = {
       <path d="M16 13.5H7M16 13.5l-2.3-2.3M16 13.5l-2.3 2.3" />
     </svg>
   ),
+  "vat-schedules": (
+    <svg {...ICON_PROPS}>
+      <path d="M5 3.2h10v13.6H5z" />
+      <path d="M7.5 7h5M7.5 10h5M7.5 13h3" />
+      <path d="m12.8 13.1 1.2 1.2 2.3-2.5" />
+    </svg>
+  ),
   "invoice-builder": (
     <svg {...ICON_PROPS}>
       <path d="M5.5 2.8h6.2L16 7v10.2a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V3.8a1 1 0 0 1 1-1Z" />

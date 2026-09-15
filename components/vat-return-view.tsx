@@ -23,7 +23,7 @@ function downloadCsv(fileName: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-export function VatReturnView({ workspace, profile, period, onOpenLedger, onClosePeriod, onFile }: { workspace: BusinessWorkspace; profile: BusinessProfile; period: VatPeriodRecord; onOpenLedger: () => void; onClosePeriod: () => void; onFile: () => void }) {
+export function VatReturnView({ workspace, profile, period, onOpenLedger, onOpenSchedules, onClosePeriod, onFile }: { workspace: BusinessWorkspace; profile: BusinessProfile; period: VatPeriodRecord; onOpenLedger: () => void; onOpenSchedules: () => void; onClosePeriod: () => void; onFile: () => void }) {
   const transactions = workspace.vatTransactions.filter((item) => item.periodId === period.id);
   const summary = summariseVatPeriod(transactions);
   const schedules = SCHEDULE_DEFINITIONS.map((definition) => ({ ...definition, rows: transactionsForSchedule(transactions, definition.code) }));
@@ -41,9 +41,10 @@ export function VatReturnView({ workspace, profile, period, onOpenLedger, onClos
         <div className="card-head"><div><h2>Schedule preparation map</h2><p>Export each schedule as CSV, check it against the latest official template, then upload it in e-Services.</p></div><strong><span className="mono">{summary.transactionCount}</span> records</strong></div>
         <div className="schedule-map">{schedules.map((item) => <div key={item.code}><b className="mono">{item.code}</b><span><strong>{item.name}</strong><small>{item.channel}</small></span><em className="mono">{item.rows.length}</em><button className="button" disabled={!item.rows.length} onClick={() => exportSchedule(item.code)} title={item.rows.length ? `Download schedule ${item.code}` : "No records mapped to this schedule"}>CSV</button></div>)}</div>
         <div className="form-actions">
+          <button className="button primary" onClick={onOpenSchedules}>Build official 01/02 schedules</button>
           <button className="button" disabled={!transactions.length} onClick={() => downloadCsv(scheduleFileName(profile, period, "return-summary"), buildReturnSummaryCsv(profile, period, transactions))}>Download return summary</button>
           <a className="button" target="_blank" rel="noreferrer" href="https://www.ird.gov.lk/en/downloads/sitepages/schedules.aspx">Official schedules ↗</a>
-          <button className="button primary" onClick={onOpenLedger}>Edit ledger</button>
+          <button className="button" onClick={onOpenLedger}>Edit ledger</button>
         </div>
       </article>
       <article className="card pad">

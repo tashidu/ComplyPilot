@@ -23,6 +23,7 @@ import { VatInvoiceBuilder, type VatInvoiceDraft } from "@/components/vat-invoic
 import { VatLedgerView, type VatTransactionDraft } from "@/components/vat-ledger-view";
 import { VatLifecycleView } from "@/components/vat-lifecycle-view";
 import { VatReturnView } from "@/components/vat-return-view";
+import { VatSchedulesView } from "@/components/vat-schedules-view";
 import { VatRegistrationView, type RegistrationDraft } from "@/components/vat-registration-view";
 import { Modal, Toast } from "@/components/ui";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -401,6 +402,32 @@ export default function Page() {
     return Boolean(updated);
   }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
 
+  const buildVatSchedules = useCallback(async () => {
+    if (!activeProfile || !activePeriod) return false;
+    setWorkspaceBusy(true);
+    const updated = await postWorkspaceAction({ action: "build_vat_schedules", profileId: activeProfile.id, periodId: activePeriod.id });
+    setWorkspaceBusy(false);
+    if (updated) showToast("IRD Schedule 01 and 02 built from the current ledger");
+    return Boolean(updated);
+  }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
+
+  const approveVatSchedule = useCallback(async (batchId: string) => {
+    if (!activeProfile) return false;
+    setWorkspaceBusy(true);
+    const updated = await postWorkspaceAction({ action: "approve_vat_schedule", batchId, reviewer: activeProfile.authorisedReviewer || "Authorised reviewer" });
+    setWorkspaceBusy(false);
+    if (updated) showToast("Schedule approved with a saved human review record");
+    return Boolean(updated);
+  }, [activeProfile, postWorkspaceAction, showToast]);
+
+  const confirmScheduleVerification = useCallback(async (batchId: string) => {
+    setWorkspaceBusy(true);
+    const updated = await postWorkspaceAction({ action: "confirm_schedule_verification", batchId });
+    setWorkspaceBusy(false);
+    if (updated) showToast("External IRD verifier pass recorded");
+    return Boolean(updated);
+  }, [postWorkspaceAction, showToast]);
+
   const issueVatInvoice = useCallback(async (invoice: GeneratedVatInvoice) => {
     if (!activeProfile) return false;
     setWorkspaceBusy(true);
@@ -703,9 +730,10 @@ export default function Page() {
           {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} onConfirmRegistration={confirmVatRegistration} /> : null}
           {view === "ramis-api" ? <RamisApiView workspace={workspace} profile={activeProfile} onSave={saveRamisApiProfile} onOpenRegistration={() => navigate("vat-registration")} /> : null}
           {view === "vat-ledger" ? <VatLedgerView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={createVatTransaction} onDelete={deleteVatTransaction} onCreateInvoice={() => navigate("invoice-builder")} extraction={analyzeResult?.invoice ?? null} extractionMode={analyzeResult?.mode} prefill={copilotDraft?.kind === "ledger_draft" ? copilotDraft : null} /> : null}
+          {view === "vat-schedules" ? <VatSchedulesView workspace={workspace} profile={activeProfile} period={activePeriod} busy={workspaceBusy} onBuild={buildVatSchedules} onApprove={approveVatSchedule} onVerify={confirmScheduleVerification} onOpenLedger={() => navigate("vat-ledger")} onOpenReturn={() => navigate("vat-return")} /> : null}
           {view === "invoice-register" ? <InvoiceRegisterView workspace={workspace} profile={activeProfile} busy={workspaceBusy} onIssue={issueVatInvoice} onVoid={voidVatInvoice} onDuplicate={duplicateVatInvoice} onCreate={() => navigate("invoice-builder")} /> : null}
           {view === "invoice-builder" ? <VatInvoiceBuilder profile={activeProfile} period={activePeriod} generated={workspace.generatedInvoices.filter((item) => item.profileId === activeProfile.id && item.periodId === activePeriod.id)} onSave={createVatInvoice} prefill={copilotDraft?.kind === "invoice_draft" ? copilotDraft : null} /> : null}
-          {view === "vat-return" ? <VatReturnView workspace={workspace} profile={activeProfile} period={activePeriod} onOpenLedger={() => navigate("vat-ledger")} onClosePeriod={() => navigate("period-close")} onFile={() => navigate("filing")} /> : null}
+          {view === "vat-return" ? <VatReturnView workspace={workspace} profile={activeProfile} period={activePeriod} onOpenLedger={() => navigate("vat-ledger")} onOpenSchedules={() => navigate("vat-schedules")} onClosePeriod={() => navigate("period-close")} onFile={() => navigate("filing")} /> : null}
           {view === "overview" ? <OverviewView result={analyzeResult} futureRules={futureRules} files={inboxCount} onAddFiles={addFiles} onToggleResolve={(id) => navigate(id === "invoice" ? "smart-fix" : "tasks")} onQueueRescueActions={queueRescueActions} onOpenEvidence={openEvidence} onExportPassport={exportPassport} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
           {view === "inbox" ? <InvoiceInboxView workspace={workspace} profile={activeProfile} period={activePeriod} busy={uploading} onAddFiles={addFiles} /> : null}
           {view === "tasks" ? <TasksView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={saveTask} onComplete={completeTask} onOpenSmartFix={() => navigate("smart-fix")} /> : null}

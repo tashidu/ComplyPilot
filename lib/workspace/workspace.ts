@@ -24,6 +24,8 @@ export type VatTransactionKind = "OUTPUT" | "INPUT_LOCAL" | "INPUT_IMPORT";
 export type VatTreatment = "STANDARD_18" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE";
 export type VatSupplyType = "GOODS" | "SERVICES";
 export type VatInvoiceStatus = "DRAFT" | "ISSUED" | "VOID";
+export type VatScheduleCode = "01" | "02";
+export type VatScheduleStatus = "NEEDS_REVIEW" | "READY" | "APPROVED" | "IRD_VERIFIED";
 
 export type BusinessProfile = {
   id: string;
@@ -129,6 +131,43 @@ export type VatTransaction = {
    */
   sourceInvoiceId?: string;
   createdAt: string;
+};
+
+export type VatScheduleIssue = {
+  transactionId: string | null;
+  rowNumber: number | null;
+  severity: "ERROR" | "WARNING";
+  field: string;
+  message: string;
+};
+
+/**
+ * Persisted build/review metadata for a deterministic IRD schedule export.
+ * The actual rows remain in vatTransactions, so there is only one source of
+ * truth and a rebuild can never copy stale invoice amounts into a second store.
+ */
+export type VatScheduleBatch = {
+  id: string;
+  profileId: string;
+  periodId: string;
+  code: VatScheduleCode;
+  submissionType: "ORIGINAL" | "AMENDMENT";
+  versionNumber: number;
+  templateVersion: "1.8";
+  periodCode: string;
+  fileName: string;
+  status: VatScheduleStatus;
+  sourceTransactionIds: string[];
+  rowCount: number;
+  netTotalLkr: number;
+  vatTotalLkr: number;
+  disallowedVatTotalLkr: number;
+  issues: VatScheduleIssue[];
+  approvedBy: string | null;
+  approvedAt: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type VatInvoiceLine = {
@@ -244,6 +283,7 @@ export type BusinessWorkspace = {
   ramisApiProfiles: RamisApiProfile[];
   vatTransactions: VatTransaction[];
   generatedInvoices: GeneratedVatInvoice[];
+  vatScheduleBatches: VatScheduleBatch[];
   updatedAt: string;
 };
 
@@ -453,6 +493,7 @@ export function createDefaultWorkspace(): BusinessWorkspace {
       },
     ],
     generatedInvoices: [],
+    vatScheduleBatches: [],
     updatedAt: now,
   };
 }
@@ -485,6 +526,7 @@ export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace 
       voidedAt: invoice.voidedAt ?? null,
       voidReason: invoice.voidReason ?? "",
     })),
+    vatScheduleBatches: input.vatScheduleBatches ?? [],
   };
 }
 

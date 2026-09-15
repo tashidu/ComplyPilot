@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseVatScheduleCsv } from "../lib/evidence/schedule-parser";
-import { buildReturnSummaryCsv, buildScheduleCsv, scheduleFileName, SCHEDULE_DEFINITIONS, transactionsForSchedule } from "../lib/vat-schedule-export";
+import { buildOfficialScheduleCsv, buildReturnSummaryCsv, buildScheduleCsv, officialScheduleFileName, OFFICIAL_SCHEDULE_HEADERS, scheduleFileName, SCHEDULE_DEFINITIONS, toIrdDate, transactionsForSchedule, validateOfficialSchedule, vatPeriodCode } from "../lib/vat-schedule-export";
 import type { BusinessProfile, VatPeriodRecord, VatTransaction } from "../lib/workspace/workspace";
 
 function transaction(patch: Partial<VatTransaction>): VatTransaction {
@@ -153,5 +153,59 @@ describe("schedule file names", () => {
   it("falls back to the display name when no TIN is recorded", () => {
     const bare = { ...profile, tin: "" } as BusinessProfile;
     expect(scheduleFileName(bare, period, "return-summary")).toBe("demo-exports-october-2026-return-summary.csv");
+  });
+});
+
+describe("official IRD Schedule 01 and 02 builder", () => {
+  it("uses the exact v1.8 column order and converts dates", () => {
+    const csv01 = buildOfficialScheduleCsv([transaction({ invoiceDate: "2026-10-15" })], "01");
+    expect(rows(csv01)[0]).toBe(OFFICIAL_SCHEDULE_HEADERS["01"].join(","));
+    expect(rows(csv01)[1]).toContain("1,10/15/2026,26SEP_BR01_1");
+
+    const csv02 = buildOfficialScheduleCsv([transaction({ kind: "INPUT_LOCAL", scheduleCode: "02", disallowedInputVatLkr: 20 })], "02");
+    expect(rows(csv02)[0]).toBe(OFFICIAL_SCHEDULE_HEADERS["02"].join(","));
+    expect(rows(csv02)[1].endsWith("1000.00,180.00,20.00")).toBe(true);
+    expect(toIrdDate("2026-10-03")).toBe("10/03/2026");
+  });
+
+  it("derives monthly and quarterly IRD period codes", () => {
+    expect(vatPeriodCode(period)).toBe("2641");
+    expect(vatPeriodCode({ ...period, frequency: "QUARTERLY" })).toBe("2640");
+  });
+
+  it("creates the official upload filename convention", () => {
+    expect(officialScheduleFileName(profile, period, "02", "2026-11-24", "ORIGINAL", 1))
+      .toBe("100123456_VAT_SCHEDULE02_2641_20261124_ORIGINAL_V1.csv");
+  });
+
+  it("blocks malformed TINs, out-of-period dates and duplicate invoice keys", () => {
+    const duplicate = transaction({ id: "B", invoiceDate: "2026-11-01", counterpartyTin: "123", invoiceNumber: "INV-1" });
+    const issues = validateOfficialSchedule([
+      duplicate,
+      transaction({ id: "C", invoiceDate: "2026-11-01", counterpartyTin: "123", invoiceNumber: "INV-1" }),
+    ], period, "01");
+    expect(issues.some((issue) => issue.field === "Purchaser's TIN" && issue.severity === "ERROR")).toBe(true);
+    expect(issues.some((issue) => issue.field === "Invoice Date" && issue.severity === "ERROR")).toBe(true);
+    expect(issues.some((issue) => issue.message.startsWith("Possible duplicate"))).toBe(true);
+  });
+
+  it("warns when standard-rated VAT differs from 18 percent", () => {
+    const issues = validateOfficialSchedule([transaction({ invoiceDate: "2026-10-15", vatAmountLkr: 170 })], period, "01");
+    expect(issues).toContainEqual(expect.objectContaining({ severity: "WARNING", field: "VAT Amount" }));
+  });
+});
+
+describe("the standard rate the validator warns against", () => {
+  it("comes from the shared VAT calculation, not a second copy of the rate", () => {
+    // A row whose VAT is right at the standard rate must not be warned about.
+    // If this file ever grows its own rate literal again, this fails the day
+    // the rate moves rather than quietly warning against the old one.
+    const correct = transaction({ netAmountLkr: 100_000, vatAmountLkr: 18_000, treatment: "STANDARD_18", invoiceDate: "2026-10-05" });
+    const octoberPeriod = { ...period, frequency: "MONTHLY" } as unknown as VatPeriodRecord;
+    expect(validateOfficialSchedule([correct], octoberPeriod, "01")).toEqual([]);
+
+    const wrong = transaction({ netAmountLkr: 100_000, vatAmountLkr: 15_000, treatment: "STANDARD_18", invoiceDate: "2026-10-05" });
+    const issues = validateOfficialSchedule([wrong], octoberPeriod, "01");
+    expect(issues.some((i) => i.severity === "WARNING" && i.message.includes("18000.00"))).toBe(true);
   });
 });
