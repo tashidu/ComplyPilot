@@ -232,6 +232,14 @@ const WorkspaceAction = z.discriminatedUnion("action", [
     periodId: z.string().min(1).max(100),
   }),
   z.object({
+    action: z.literal("append_audit_events"),
+    events: z.array(z.object({
+      actor: z.enum(["agent", "human"]),
+      title: z.string().trim().min(2).max(160),
+      detail: z.string().trim().max(600),
+    })).min(1).max(20),
+  }),
+  z.object({
     action: z.literal("save_schedule_details"),
     profileId: z.string().min(1).max(100),
     code: z.enum(["01", "02", "03", "04", "05", "06", "07"]),
@@ -709,6 +717,22 @@ export async function POST(req: Request) {
       workspace = {
         ...workspace,
         vatScheduleBatches: [...rebuilt, ...workspace.vatScheduleBatches.filter((item) => !replaced.has(`${item.periodId}:${item.code}`))],
+        updatedAt: now,
+      };
+    } else if (input.action === "append_audit_events") {
+      // Append-only, and capped. A trail is evidence, so nothing here edits or
+      // removes an existing entry; the cap keeps one long-lived workspace from
+      // growing without bound while still holding far more than a session.
+      const appended = input.events.map((event) => ({
+        id: createId("AUDIT"),
+        at: now,
+        actor: event.actor,
+        title: event.title,
+        detail: event.detail,
+      }));
+      workspace = {
+        ...workspace,
+        auditEvents: [...workspace.auditEvents, ...appended].slice(-500),
         updatedAt: now,
       };
     } else if (input.action === "save_schedule_details") {

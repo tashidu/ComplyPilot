@@ -28,7 +28,7 @@ import { VatRegistrationView, type RegistrationDraft } from "@/components/vat-re
 import { Modal, Toast } from "@/components/ui";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { WorkflowTrace } from "@/components/workflow-trace";
-import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
+import { type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
 import type { AuthUser } from "@/lib/auth/types";
@@ -72,7 +72,7 @@ export default function Page() {
   const [uploading, setUploading] = useState(false);
   const [notice2, setNotice2] = useState(false);
   const [activeEvidence, setActiveEvidence] = useState("supplier");
-  const [audit, setAudit] = useState<AuditEvent[]>(INITIAL_AUDIT);
+  const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [filingConsent, setFilingConsent] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [receiptNumber, setReceiptNumber] = useState("");
@@ -89,9 +89,25 @@ export default function Page() {
     toastTimer.current = setTimeout(() => setToast((current) => ({ ...current, show: false })), 2600);
   }, []);
 
+  /**
+   * Records something that happened.
+   *
+   * Written to the screen immediately and to the workspace behind it, so the
+   * trail survives a reload. A trail that only lives in React state is not an
+   * audit trail; it is a transcript that disappears when the tab does. The
+   * persist is deliberately not awaited - an entry failing to store must never
+   * be able to block the action it was describing.
+   */
   const addAudit = useCallback((actor: AuditEvent["actor"], title: string, detail: string) => {
     const time = new Date().toLocaleTimeString("en-GB", { hour12: false });
     setAudit((events) => [...events, { time, actor, title, detail }]);
+    void fetch("/api/workspace", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "append_audit_events", events: [{ actor, title, detail }] }),
+    }).catch(() => {
+      // Storage is best-effort; the entry is already on screen.
+    });
   }, []);
 
   const navigate = useCallback((next: ViewId) => {
@@ -223,6 +239,16 @@ export default function Page() {
         const nextWorkspace = data.workspace as BusinessWorkspace;
         if (cancelled) return;
         setWorkspace(nextWorkspace);
+        // The stored trail, replayed. Without this the persist would be
+        // write-only and the screen would still start blank on every reload.
+        setAudit(
+          (nextWorkspace.auditEvents ?? []).map((event) => ({
+            time: new Date(event.at).toLocaleTimeString("en-GB", { hour12: false }),
+            actor: event.actor,
+            title: event.title,
+            detail: event.detail,
+          })),
+        );
         setAuthUser((data.user as AuthUser | null) ?? null);
         const profile = nextWorkspace.profiles.find((candidate) => candidate.id === nextWorkspace.activeProfileId) ?? nextWorkspace.profiles[0];
         const period = nextWorkspace.periods.find((candidate) => candidate.id === profile.activePeriodId);
@@ -673,7 +699,7 @@ export default function Page() {
     setResolved([]);
     setNotice2(false);
     setActiveEvidence("supplier");
-    setAudit(INITIAL_AUDIT);
+    setAudit([]);
     setFilingConsent(false);
     setSubmitted(false);
     setReceiptNumber("");

@@ -20,44 +20,15 @@ export function formatLkr(valueInMillions: number): string {
   return valueInMillions === 0 ? "LKR 0" : `LKR ${valueInMillions.toFixed(1)}M`;
 }
 
-export const INITIAL_AUDIT: AuditEvent[] = [
-  {
-    time: "09:42:03",
-    actor: "agent",
-    title: "Pre-flight workflow started",
-    detail: "13 synthetic evidence files routed to three specialist agents.",
-  },
-  {
-    time: "09:42:08",
-    actor: "agent",
-    title: "Document Agent extracted the invoice fields",
-    detail: "Two fields were below the material confidence threshold.",
-  },
-  {
-    time: "09:42:12",
-    actor: "agent",
-    title: "Schedule structure passed",
-    detail: "The CSV format is valid; evidence reconciliation continued.",
-  },
-  {
-    time: "09:42:16",
-    actor: "agent",
-    title: "Supplier source marked outdated",
-    detail: "Snapshot effective date is shown instead of treating the result as real-time.",
-  },
-  {
-    time: "09:42:21",
-    actor: "agent",
-    title: "CUSDEC variance detected",
-    detail: "A 12.4% value difference was linked to its source records.",
-  },
-  {
-    time: "09:42:25",
-    actor: "agent",
-    title: "Readiness score calculated",
-    detail: "Deterministic rules returned 68/100 with three open blockers.",
-  },
-];
+/**
+ * The trail starts empty.
+ *
+ * It previously opened with six events carrying fixed clock times, describing
+ * work no one in this session had done. An audit trail that is pre-populated
+ * with things that did not happen is not a weaker audit trail - it is a false
+ * one, and it is the first thing a reviewer would catch. Entries now appear
+ * only as actions actually occur, and are stored with the workspace.
+ */
 
 export const EVIDENCE_INVENTORY = [
   {

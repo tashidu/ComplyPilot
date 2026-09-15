@@ -153,6 +153,21 @@ export type VatScheduleIssue = {
  * schedule and, if the goods are later exported, carry a different set of
  * customs facts in the export schedule.
  */
+/**
+ * One entry in the trail, as stored.
+ *
+ * The time is an ISO instant rather than the clock face the UI shows, because
+ * a trail that only records "09:42" cannot survive a day boundary, an export,
+ * or a reviewer in another timezone asking when something actually happened.
+ */
+export type WorkspaceAuditEvent = {
+  id: string;
+  at: string;
+  actor: "agent" | "human";
+  title: string;
+  detail: string;
+};
+
 export type VatScheduleDetail = {
   transactionId: string;
   code: VatScheduleCode;
@@ -299,6 +314,7 @@ export type BusinessWorkspace = {
   generatedInvoices: GeneratedVatInvoice[];
   vatScheduleBatches: VatScheduleBatch[];
   vatScheduleDetails: VatScheduleDetail[];
+  auditEvents: WorkspaceAuditEvent[];
   updatedAt: string;
 };
 
@@ -510,6 +526,7 @@ export function createDefaultWorkspace(): BusinessWorkspace {
     generatedInvoices: [],
     vatScheduleBatches: [],
     vatScheduleDetails: [],
+    auditEvents: [],
     updatedAt: now,
   };
 }
@@ -536,6 +553,7 @@ export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace 
     // Invoices stored before issue/void existed are all still DRAFT, which is
     // what an absent status meant at the time.
     vatScheduleDetails: input.vatScheduleDetails ?? [],
+    auditEvents: input.auditEvents ?? [],
     generatedInvoices: (input.generatedInvoices ?? []).map((invoice) => ({
       ...invoice,
       status: invoice.status ?? "DRAFT",

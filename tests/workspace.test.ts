@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runOrchestrator } from "../lib/workflows/orchestrator";
+import { normaliseWorkspace } from "../lib/workspace/workspace";
 import {
   activePeriod,
   activeProfile,
@@ -56,5 +57,18 @@ describe("persistent VAT workspace model", () => {
     expect(item?.dataMode).toBe("USER_PROVIDED");
     expect(item?.runId).toBe(analysis.runId);
     expect(item?.status).toBe("FAILED");
+  });
+});
+
+describe("the audit trail", () => {
+  it("starts empty rather than with events that never happened", () => {
+    // It used to open with six entries carrying fixed clock times, describing
+    // work nobody had done. A pre-populated trail is a false one.
+    expect(createDefaultWorkspace().auditEvents).toEqual([]);
+  });
+
+  it("survives a workspace stored before the trail existed", () => {
+    const old = { ...createDefaultWorkspace(), auditEvents: undefined } as never;
+    expect(normaliseWorkspace(old).auditEvents).toEqual([]);
   });
 });
