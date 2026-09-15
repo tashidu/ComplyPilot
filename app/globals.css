@@ -2677,7 +2677,7 @@ td small {
 
 .ledger-list > div {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 11px;
@@ -2946,7 +2946,7 @@ td small {
 
 .schedule-map > div {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 34px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
   padding: 10px;
@@ -4269,4 +4269,444 @@ td small {
   color: var(--ink-soft);
   font-size: 11.5px;
   line-height: 1.5;
+}
+
+/* The per-schedule CSV export sits inside a dense row, so it is sized down to
+   a chip rather than carrying the full button padding. */
+.schedule-map > div > .button {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+/* Shown when a supplier's stated VAT is not the tax expected on that net value.
+   Amber, not red: the entry is still valid and claimable at the stated figure -
+   it is the supplier who needs to be asked, not the user who needs to correct
+   something here. */
+.stated-vat-variance {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.stated-vat-variance b {
+  color: var(--amber);
+  font-weight: 800;
+}
+
+/* ---- Tax invoice register ---------------------------------------------- */
+
+.button.danger {
+  border-color: var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.button.danger:hover:not(:disabled) {
+  border-color: var(--red);
+  background: var(--red);
+  color: #fff;
+}
+
+.vat-metric small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10.5px;
+  text-transform: none;
+}
+
+/* Removing a ledger line is a destructive act on a compliance record, so the
+   control stays quiet until the row is hovered rather than inviting the click. */
+.ledger-remove {
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1;
+  opacity: 0.45;
+  transition: 120ms ease;
+}
+
+.ledger-list > div:hover .ledger-remove:not(:disabled) {
+  opacity: 1;
+}
+
+.ledger-remove:hover:not(:disabled) {
+  border-color: var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.ledger-remove:disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+}
+
+.register-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.register-filters input {
+  min-width: 220px;
+}
+
+.invoice-register {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.invoice-row {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.invoice-row.issued { border-left: 3px solid var(--mint); }
+.invoice-row.draft { border-left: 3px solid var(--amber); }
+
+/* A void invoice stays legible but visibly spent: it is a record to account
+   for, not a document anyone should act on. */
+.invoice-row.void {
+  border-left: 3px solid var(--red);
+  background: var(--line-soft);
+}
+
+.invoice-row.void .invoice-row-main > div > strong {
+  text-decoration: line-through;
+}
+
+.invoice-row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.invoice-row-main > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invoice-row-main small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.invoice-row-amounts {
+  display: flex;
+  gap: 14px;
+}
+
+.invoice-row-amounts span {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.invoice-row-amounts b {
+  color: var(--ink);
+  font-size: 12.5px;
+  text-transform: none;
+}
+
+.invoice-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.invoice-row-actions .button {
+  padding: 5px 11px;
+  font-size: 11.5px;
+}
+
+.invoice-void-reason {
+  margin-top: 8px;
+  color: var(--red);
+  font-size: 11px;
+}
+
+.invoice-void-form {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--red);
+  border-radius: var(--radius-sm);
+  background: var(--red-soft);
+}
+
+.invoice-void-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.invoice-void-form label span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.invoice-void-form p {
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.invoice-gap-note {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+}
+
+.invoice-gap-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--amber);
+  font-size: 12px;
+}
+
+.invoice-gap-note p {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .invoice-row-main {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .invoice-row-amounts {
+    flex-wrap: wrap;
+  }
+
+  .register-filters input {
+    min-width: 0;
+    flex: 1;
+  }
+}
+
+/* ---- Extraction → ledger panel ----------------------------------------- */
+
+.extraction-panel {
+  margin-bottom: 14px;
+  border-left: 3px solid var(--brand);
+}
+
+.extraction-direction {
+  margin-top: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--line-soft);
+}
+
+.extraction-direction.sales { border-color: var(--brand); background: var(--brand-soft); }
+.extraction-direction.purchase { border-color: var(--mint); background: var(--mint-soft); }
+.extraction-direction.unknown,
+.extraction-direction.unrelated { border-color: var(--amber); background: var(--amber-soft); }
+
+.extraction-direction strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 12.5px;
+}
+
+.extraction-direction p {
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.extraction-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.extraction-fields > div {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+/* A field the model was unsure about is marked here rather than in a summary
+   line, so the reviewer's eye lands on the box that needs checking. */
+.extraction-fields > div.needs-review {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+
+.extraction-field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.extraction-field-head span {
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.extraction-field-head b {
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.extraction-fields > div > strong {
+  display: block;
+  margin: 3px 0 6px;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.confidence-bar {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.confidence-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+.confidence-bar i.ok { background: var(--mint); }
+.confidence-bar i.warn { background: var(--amber); }
+
+.extraction-source,
+.extraction-reason {
+  display: block;
+  margin-top: 5px;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.extraction-source { color: var(--muted); }
+.extraction-reason { color: var(--amber); }
+
+.extraction-proposal {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+}
+
+.extraction-proposal small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.extraction-amounts {
+  display: flex;
+  gap: 14px;
+}
+
+.extraction-amounts span {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.extraction-amounts b {
+  color: var(--ink);
+  font-size: 13px;
+  text-transform: none;
+}
+
+.extraction-review-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.extraction-blocked {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--amber);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+}
+
+.extraction-blocked strong { font-size: 12px; }
+
+.extraction-blocked ul {
+  margin: 7px 0 7px 16px;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.extraction-blocked p {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.extraction-boundary {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.extraction-confirm-side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+}
+
+.extraction-confirm-side strong { font-size: 12.5px; }
+
+.extraction-confirm-side p {
+  margin-top: 3px;
+  max-width: 46ch;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.extraction-direction .text-link {
+  margin-top: 6px;
+  font-size: 10.5px;
 }

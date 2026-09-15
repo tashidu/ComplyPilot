@@ -41,11 +41,22 @@ describe("rounding", () => {
   });
 
   it("holds net + VAT === gross for every cent up to LKR 2,000", () => {
-    for (let cents = 0; cents <= 200_000; cents++) {
+    // Every one of the 200,001 cases is still checked. What changed is that
+    // they are asserted in bulk: calling expect() per case costs far more than
+    // the arithmetic under test and pushed this past the default timeout once
+    // the suite grew. Failures are collected with their input, so a regression
+    // still names the cent that broke it.
+    const failures: string[] = [];
+    for (let cents = 0; cents <= 200_000 && failures.length < 5; cents++) {
       const r = line(cents / 100);
-      expect(roundMoney(r.netAmountLkr + r.vatAmountLkr)).toBe(r.grossAmountLkr);
-      expect(isWholeCents(r.vatAmountLkr)).toBe(true);
+      if (roundMoney(r.netAmountLkr + r.vatAmountLkr) !== r.grossAmountLkr) {
+        failures.push(`${cents}c: net ${r.netAmountLkr} + VAT ${r.vatAmountLkr} !== gross ${r.grossAmountLkr}`);
+      }
+      if (!isWholeCents(r.vatAmountLkr)) {
+        failures.push(`${cents}c: VAT ${r.vatAmountLkr} is not a whole number of cents`);
+      }
     }
+    expect(failures).toEqual([]);
   });
 });
 

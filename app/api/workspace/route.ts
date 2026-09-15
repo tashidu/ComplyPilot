@@ -6,6 +6,7 @@ import { recallRun } from "@/lib/runs/run-store";
 import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-store";
 import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
 import { calculateInvoiceLine, calculateVat, invoiceSerial, resolveTransactionVat, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
+import { issueBlocker, voidBlocker } from "@/lib/vat-invoice-register";
 import {
   activeProfile,
   createId,
@@ -18,6 +19,8 @@ import {
   type FilingFrequency,
   type VatRegistrationApplication,
   type VatPeriodRecord,
+  type GeneratedVatInvoice,
+  type VatTransaction,
 } from "@/lib/workspace/workspace";
 
 export const runtime = "nodejs";
@@ -102,7 +105,13 @@ const WorkspaceAction = z.discriminatedUnion("action", [
        * recoverable to the extent it was charged and evidenced, so the claim
        * follows the document rather than a recomputed 18%.
        */
-      statedVatAmountLkr: z.number().finite().min(0).max(1_000_000_000_000).optional(),
+      statedVatAmountLkr: z.number().finite().min(0).max(1_000_000_000_000).nullish(),
+      /**
+       * Where the figures came from. Recorded so a reviewer can tell a line a
+       * person typed from one a model read off a document, which are not
+       * equally likely to contain a transcription error.
+       */
+      source: z.enum(["MANUAL", "DOCUMENT_EXTRACTION"]).optional(),
       disallowedInputVatLkr: z.number().finite().min(0).max(1_000_000_000_000),
     }),
   }),
@@ -123,6 +132,22 @@ const WorkspaceAction = z.discriminatedUnion("action", [
       paymentMode: z.string().trim().max(80),
       lines: z.array(z.object({ description: z.string().trim().min(2).max(240), quantity: z.number().finite().positive().max(1_000_000), unitPriceLkr: z.number().finite().positive().max(1_000_000_000_000) })).min(1).max(20),
     }),
+  }),
+  z.object({
+    action: z.literal("issue_vat_invoice"),
+    profileId: z.string().min(1).max(100),
+    invoiceId: z.string().min(1).max(100),
+  }),
+  z.object({
+    action: z.literal("void_vat_invoice"),
+    profileId: z.string().min(1).max(100),
+    invoiceId: z.string().min(1).max(100),
+    reason: z.string().trim().min(4).max(240),
+  }),
+  z.object({
+    action: z.literal("delete_vat_transaction"),
+    profileId: z.string().min(1).max(100),
+    transactionId: z.string().min(1).max(100),
   }),
   z.object({
     action: z.literal("save_vat_registration"),
@@ -211,6 +236,30 @@ function findPeriod(workspace: BusinessWorkspace, periodId: string): VatPeriodRe
   const period = workspace.periods.find((candidate) => candidate.id === periodId);
   if (!period) throw new WorkspaceRequestError("The selected VAT period does not exist.");
   return period;
+}
+
+function findInvoice(workspace: BusinessWorkspace, profile: BusinessProfile, invoiceId: string): GeneratedVatInvoice {
+  const invoice = workspace.generatedInvoices.find((candidate) => candidate.id === invoiceId);
+  if (!invoice) throw new WorkspaceRequestError("That tax invoice does not exist.");
+  if (invoice.profileId !== profile.id) throw new WorkspaceRequestError("That tax invoice belongs to another business.");
+  return invoice;
+}
+
+/**
+ * Whether a ledger line is the one this invoice created.
+ *
+ * New invoices carry an explicit id on their line. Invoices written before that
+ * link existed are matched on number and origin instead - narrowed to lines we
+ * generated ourselves, so a hand-entered purchase that happens to reuse the
+ * number is never mistaken for one of ours.
+ */
+function isLedgerLineFor(transaction: VatTransaction, invoice: GeneratedVatInvoice): boolean {
+  if (transaction.sourceInvoiceId) return transaction.sourceInvoiceId === invoice.id;
+  return (
+    transaction.source === "GENERATED_INVOICE" &&
+    transaction.profileId === invoice.profileId &&
+    transaction.invoiceNumber === invoice.invoiceNumber
+  );
 }
 
 function defaultPeriod(profileId: string, frequency: FilingFrequency): VatPeriodRecord {
@@ -351,7 +400,7 @@ export async function POST(req: Request) {
         ...amounts,
         disallowedInputVatLkr: disallowed,
         scheduleCode: scheduleFor(input.transaction.kind, input.transaction.treatment, input.transaction.supplyType),
-        source: "MANUAL" as const,
+        source: input.transaction.source ?? ("MANUAL" as const),
         createdAt: now,
       };
       workspace = { ...workspace, vatTransactions: [transaction, ...workspace.vatTransactions], updatedAt: now };
@@ -370,9 +419,58 @@ export async function POST(req: Request) {
       const number = invoiceSerial(input.invoice.invoiceDate, input.invoice.classificationCode, sequence);
       const lines = input.invoice.lines.map((line) => calculateInvoiceLine(line, input.invoice.treatment));
       const { netTotalLkr, vatTotalLkr, grossTotalLkr } = totalInvoiceLines(lines, input.invoice.treatment);
-      const invoice = { id: createId("VATINV"), profileId: profile.id, periodId: period.id, invoiceNumber: number, ...input.invoice, lines, netTotalLkr, vatTotalLkr, grossTotalLkr, status: "DRAFT" as const, createdAt: now };
-      const transaction = { id: createId("VATTX"), profileId: profile.id, periodId: period.id, kind: "OUTPUT" as const, treatment: input.invoice.treatment, supplyType: input.invoice.supplyType, invoiceNumber: number, invoiceDate: input.invoice.invoiceDate, counterpartyName: input.invoice.purchaserName, counterpartyTin: input.invoice.purchaserTin, description: lines.map((line) => line.description).join("; ").slice(0, 240), netAmountLkr: netTotalLkr, vatRate: input.invoice.treatment === "STANDARD_18" ? 18 : 0, vatAmountLkr: vatTotalLkr, grossAmountLkr: grossTotalLkr, disallowedInputVatLkr: 0, scheduleCode: scheduleFor("OUTPUT", input.invoice.treatment, input.invoice.supplyType), source: "GENERATED_INVOICE" as const, createdAt: now };
+      const invoice = { id: createId("VATINV"), profileId: profile.id, periodId: period.id, invoiceNumber: number, ...input.invoice, lines, netTotalLkr, vatTotalLkr, grossTotalLkr, status: "DRAFT" as const, issuedAt: null, voidedAt: null, voidReason: "", createdAt: now };
+      const transaction = { id: createId("VATTX"), profileId: profile.id, periodId: period.id, kind: "OUTPUT" as const, treatment: input.invoice.treatment, supplyType: input.invoice.supplyType, invoiceNumber: number, invoiceDate: input.invoice.invoiceDate, counterpartyName: input.invoice.purchaserName, counterpartyTin: input.invoice.purchaserTin, description: lines.map((line) => line.description).join("; ").slice(0, 240), netAmountLkr: netTotalLkr, vatRate: input.invoice.treatment === "STANDARD_18" ? 18 : 0, vatAmountLkr: vatTotalLkr, grossAmountLkr: grossTotalLkr, disallowedInputVatLkr: 0, scheduleCode: scheduleFor("OUTPUT", input.invoice.treatment, input.invoice.supplyType), source: "GENERATED_INVOICE" as const, sourceInvoiceId: invoice.id, createdAt: now };
       workspace = { ...workspace, generatedInvoices: [invoice, ...workspace.generatedInvoices], vatTransactions: [transaction, ...workspace.vatTransactions], updatedAt: now };
+    } else if (input.action === "issue_vat_invoice") {
+      const profile = findProfile(workspace, input.profileId);
+      const invoice = findInvoice(workspace, profile, input.invoiceId);
+      const blocker = issueBlocker(invoice, workspace.periods.find((item) => item.id === invoice.periodId));
+      if (blocker) throw new WorkspaceRequestError(blocker);
+      workspace = {
+        ...workspace,
+        generatedInvoices: workspace.generatedInvoices.map((item) =>
+          item.id === invoice.id ? { ...item, status: "ISSUED" as const, issuedAt: now } : item,
+        ),
+        updatedAt: now,
+      };
+    } else if (input.action === "void_vat_invoice") {
+      const profile = findProfile(workspace, input.profileId);
+      const invoice = findInvoice(workspace, profile, input.invoiceId);
+      const blocker = voidBlocker(invoice, workspace.periods.find((item) => item.id === invoice.periodId));
+      if (blocker) throw new WorkspaceRequestError(blocker);
+      workspace = {
+        ...workspace,
+        generatedInvoices: workspace.generatedInvoices.map((item) =>
+          item.id === invoice.id
+            ? { ...item, status: "VOID" as const, voidedAt: now, voidReason: input.reason }
+            : item,
+        ),
+        // The output VAT this invoice put into the period goes with it. Leaving
+        // the ledger line behind would have the return declare tax on a supply
+        // the business has withdrawn.
+        vatTransactions: workspace.vatTransactions.filter((item) => !isLedgerLineFor(item, invoice)),
+        updatedAt: now,
+      };
+    } else if (input.action === "delete_vat_transaction") {
+      const profile = findProfile(workspace, input.profileId);
+      const transaction = workspace.vatTransactions.find((item) => item.id === input.transactionId && item.profileId === profile.id);
+      if (!transaction) throw new WorkspaceRequestError("That VAT transaction does not exist.");
+      const period = workspace.periods.find((item) => item.id === transaction.periodId);
+      if (period?.status === "APPROVED" || period?.status === "SUBMITTED") {
+        throw new WorkspaceRequestError("This VAT period is closed, so its transactions can no longer be removed.");
+      }
+      // A line that came from an invoice we generated is not deletable on its
+      // own: the invoice would still stand while the tax it carries vanished
+      // from the return. Voiding the invoice is the operation that does both.
+      if (transaction.source === "GENERATED_INVOICE") {
+        throw new WorkspaceRequestError("This line belongs to a generated tax invoice. Void the invoice instead.");
+      }
+      workspace = {
+        ...workspace,
+        vatTransactions: workspace.vatTransactions.filter((item) => item.id !== transaction.id),
+        updatedAt: now,
+      };
     } else if (input.action === "save_vat_registration") {
       const profile = findProfile(workspace, input.profileId);
       const existing = workspace.vatRegistrations.find((item) => item.profileId === profile.id);

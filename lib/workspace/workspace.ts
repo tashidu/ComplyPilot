@@ -23,6 +23,7 @@ export type RamisApiStatus = "NOT_STARTED" | "CONTACT_IRD" | "ONBOARDING" | "APP
 export type VatTransactionKind = "OUTPUT" | "INPUT_LOCAL" | "INPUT_IMPORT";
 export type VatTreatment = "STANDARD_18" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE";
 export type VatSupplyType = "GOODS" | "SERVICES";
+export type VatInvoiceStatus = "DRAFT" | "ISSUED" | "VOID";
 
 export type BusinessProfile = {
   id: string;
@@ -118,6 +119,15 @@ export type VatTransaction = {
   disallowedInputVatLkr: number;
   scheduleCode: "01" | "02" | "03" | "06" | "07" | "NONE";
   source: "MANUAL" | "GENERATED_INVOICE" | "DOCUMENT_EXTRACTION";
+  /**
+   * The generated invoice this line came from, when it came from one.
+   *
+   * Voiding an invoice has to withdraw its output VAT, and matching back on the
+   * invoice number alone would be wrong: a purchase can legitimately be entered
+   * by hand carrying the same number a supplier used, and deleting that instead
+   * would silently drop a real input claim. The id is unambiguous.
+   */
+  sourceInvoiceId?: string;
   createdAt: string;
 };
 
@@ -150,7 +160,16 @@ export type GeneratedVatInvoice = {
   netTotalLkr: number;
   vatTotalLkr: number;
   grossTotalLkr: number;
-  status: "DRAFT" | "ISSUED";
+  /**
+   * DRAFT is prepared but not yet given to the purchaser; ISSUED has left the
+   * business and is the figure the buyer will claim against; VOID has been
+   * withdrawn. A tax invoice is never edited after issue - it is voided and
+   * replaced - so this status, not an edit history, is the audit trail.
+   */
+  status: VatInvoiceStatus;
+  issuedAt: string | null;
+  voidedAt: string | null;
+  voidReason: string;
   createdAt: string;
 };
 
@@ -457,7 +476,15 @@ export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace 
     vatRegistrations: input.vatRegistrations ?? [],
     ramisApiProfiles: input.ramisApiProfiles ?? [],
     vatTransactions: input.vatTransactions ?? [],
-    generatedInvoices: input.generatedInvoices ?? [],
+    // Invoices stored before issue/void existed are all still DRAFT, which is
+    // what an absent status meant at the time.
+    generatedInvoices: (input.generatedInvoices ?? []).map((invoice) => ({
+      ...invoice,
+      status: invoice.status ?? "DRAFT",
+      issuedAt: invoice.issuedAt ?? null,
+      voidedAt: invoice.voidedAt ?? null,
+      voidReason: invoice.voidReason ?? "",
+    })),
   };
 }
 
