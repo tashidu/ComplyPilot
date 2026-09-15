@@ -103,3 +103,59 @@ export const VAT_TREATMENT_LABELS: Record<VatTreatment, string> = {
   EXEMPT: "Exempt supply",
   OUT_OF_SCOPE: "Outside the scope of VAT",
 };
+
+/**
+ * Resolves the VAT on one ledger transaction.
+ *
+ * The direction decides where the number comes from, and this is not a detail:
+ *
+ *   - On a sale the business is the issuer, so the VAT is computed. It is its
+ *     own figure to get right.
+ *   - On a purchase the claimable VAT is what the supplier actually charged on
+ *     their tax invoice. Recomputing 18% of the net instead claims a figure the
+ *     document does not show - a supplier who rounds per line states a few cents
+ *     less, and a supplier who billed the wrong rate has their error silently
+ *     replaced by ours rather than reported. Input tax is recoverable only to
+ *     the extent it was charged and evidenced.
+ *
+ * A stated amount that differs from the expected tax is kept and flagged, so it
+ * reaches a human as a finding instead of being smoothed away.
+ */
+export function resolveTransactionVat(input: {
+  kind: VatTransactionKind;
+  netAmountLkr: number;
+  treatment: VatTreatment;
+  /** The VAT printed on the supplier's invoice. Purchases only. */
+  statedVatAmountLkr?: number | null;
+}): {
+  netAmountLkr: number;
+  vatRate: number;
+  vatAmountLkr: number;
+  grossAmountLkr: number;
+  /** Set when the supplier's stated VAT is not the tax expected on that net. */
+  statedVatVariance: { expectedLkr: number; statedLkr: number; differenceLkr: number } | null;
+} {
+  const computed = calculateVat(input.netAmountLkr, input.treatment);
+  const stated = input.statedVatAmountLkr;
+
+  const isPurchase = input.kind !== "OUTPUT";
+  if (!isPurchase || stated === null || stated === undefined) {
+    return { ...computed, statedVatVariance: null };
+  }
+
+  const statedLkr = roundMoney(Math.max(0, stated));
+  const differenceLkr = roundMoney(statedLkr - computed.vatAmountLkr);
+
+  return {
+    netAmountLkr: computed.netAmountLkr,
+    vatRate: computed.vatRate,
+    // The documented amount is what may be claimed, even when it is lower than
+    // the tax that should have been charged.
+    vatAmountLkr: statedLkr,
+    grossAmountLkr: roundMoney(computed.netAmountLkr + statedLkr),
+    statedVatVariance:
+      differenceLkr === 0
+        ? null
+        : { expectedLkr: computed.vatAmountLkr, statedLkr, differenceLkr },
+  };
+}

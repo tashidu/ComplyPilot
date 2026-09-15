@@ -5,7 +5,7 @@ import { getSession, withSession } from "@/lib/http/session";
 import { recallRun } from "@/lib/runs/run-store";
 import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-store";
 import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
-import { calculateInvoiceLine, calculateVat, invoiceSerial, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
+import { calculateInvoiceLine, calculateVat, invoiceSerial, resolveTransactionVat, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
 import {
   activeProfile,
   createId,
@@ -97,6 +97,12 @@ const WorkspaceAction = z.discriminatedUnion("action", [
       counterpartyTin: z.union([z.literal(""), z.string().regex(/^\d{9}$/)]),
       description: z.string().trim().min(2).max(240),
       netAmountLkr: z.number().finite().positive().max(1_000_000_000_000),
+      /**
+       * The VAT printed on the supplier's invoice. Purchases only: input tax is
+       * recoverable to the extent it was charged and evidenced, so the claim
+       * follows the document rather than a recomputed 18%.
+       */
+      statedVatAmountLkr: z.number().finite().min(0).max(1_000_000_000_000).optional(),
       disallowedInputVatLkr: z.number().finite().min(0).max(1_000_000_000_000),
     }),
   }),
@@ -330,7 +336,12 @@ export async function POST(req: Request) {
       }
       if (period.profileId !== profile.id) throw new WorkspaceRequestError("That period belongs to another business.");
       if (period.status === "APPROVED" || period.status === "SUBMITTED") throw new WorkspaceRequestError("This VAT period is closed.");
-      const amounts = calculateVat(input.transaction.netAmountLkr, input.transaction.treatment);
+      const amounts = resolveTransactionVat({
+        kind: input.transaction.kind,
+        netAmountLkr: input.transaction.netAmountLkr,
+        treatment: input.transaction.treatment,
+        statedVatAmountLkr: input.transaction.statedVatAmountLkr ?? null,
+      });
       const disallowed = input.transaction.kind === "OUTPUT" ? 0 : Math.min(amounts.vatAmountLkr, input.transaction.disallowedInputVatLkr);
       const transaction = {
         id: createId("VATTX"),
