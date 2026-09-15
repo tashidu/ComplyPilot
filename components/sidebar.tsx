@@ -1,9 +1,15 @@
 "use client";
 
 export type ViewId =
+  | "lifecycle"
   | "account"
   | "business"
   | "vat-registration"
+  | "ramis-api"
+  | "vat-ledger"
+  | "invoice-builder"
+  | "invoice-register"
+  | "vat-return"
   | "overview"
   | "inbox"
   | "tasks"
@@ -20,9 +26,20 @@ const NAV: { label: string; items: { id: ViewId; label: string }[] }[] = [
   {
     label: "Setup",
     items: [
+      { id: "lifecycle", label: "VAT journey" },
       { id: "account", label: "Account & login" },
       { id: "business", label: "Business profile" },
       { id: "vat-registration", label: "VAT registration" },
+      { id: "ramis-api", label: "RAMIS API setup" },
+    ],
+  },
+  {
+    label: "VAT operations",
+    items: [
+      { id: "vat-ledger", label: "Input & output VAT" },
+      { id: "invoice-builder", label: "Create VAT invoice" },
+      { id: "invoice-register", label: "Invoice register" },
+      { id: "vat-return", label: "Prepare VAT return" },
     ],
   },
   {

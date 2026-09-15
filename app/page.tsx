@@ -18,6 +18,7 @@ import { SmartFixView } from "@/components/smart-fix-view";
 import { SubmissionHistoryView } from "@/components/submission-history-view";
 import { TasksView } from "@/components/tasks-view";
 import { RamisApiView, type RamisApiDraft } from "@/components/ramis-api-view";
+import { InvoiceRegisterView } from "@/components/invoice-register-view";
 import { VatInvoiceBuilder, type VatInvoiceDraft } from "@/components/vat-invoice-builder";
 import { VatLedgerView, type VatTransactionDraft } from "@/components/vat-ledger-view";
 import { VatLifecycleView } from "@/components/vat-lifecycle-view";
@@ -28,7 +29,7 @@ import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
 import type { AuthUser } from "@/lib/auth/types";
-import type { BusinessWorkspace, GeneratedVatInvoice, WorkspaceTask } from "@/lib/workspace/workspace";
+import type { BusinessWorkspace, GeneratedVatInvoice, VatTransaction, WorkspaceTask } from "@/lib/workspace/workspace";
 
 type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
 
@@ -377,6 +378,77 @@ export default function Page() {
     return Boolean(updated);
   }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
 
+  const issueVatInvoice = useCallback(async (invoice: GeneratedVatInvoice) => {
+    if (!activeProfile) return false;
+    setWorkspaceBusy(true);
+    try {
+      const updated = await postWorkspaceAction({ action: "issue_vat_invoice", profileId: activeProfile.id, invoiceId: invoice.id });
+      if (updated) {
+        showToast(`${invoice.invoiceNumber} marked issued`);
+        addAudit("human", "Tax invoice issued", `${invoice.invoiceNumber} was marked as issued to ${invoice.purchaserName}.`);
+      }
+      return Boolean(updated);
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  }, [activeProfile, addAudit, postWorkspaceAction, showToast]);
+
+  const voidVatInvoice = useCallback(async (invoice: GeneratedVatInvoice, reason: string) => {
+    if (!activeProfile) return false;
+    setWorkspaceBusy(true);
+    try {
+      const updated = await postWorkspaceAction({ action: "void_vat_invoice", profileId: activeProfile.id, invoiceId: invoice.id, reason });
+      if (updated) {
+        showToast(`${invoice.invoiceNumber} voided`);
+        addAudit("human", "Tax invoice voided", `${invoice.invoiceNumber} was withdrawn and its output VAT removed from the period. Reason: ${reason}`);
+      }
+      return Boolean(updated);
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  }, [activeProfile, addAudit, postWorkspaceAction, showToast]);
+
+  const deleteVatTransaction = useCallback(async (transaction: VatTransaction) => {
+    if (!activeProfile) return false;
+    const updated = await postWorkspaceAction({ action: "delete_vat_transaction", profileId: activeProfile.id, transactionId: transaction.id });
+    if (updated) {
+      showToast("Transaction removed from the ledger");
+      addAudit("human", "VAT ledger entry removed", `${transaction.invoiceNumber} (${transaction.kind}) was deleted before the period closed.`);
+    }
+    return Boolean(updated);
+  }, [activeProfile, addAudit, postWorkspaceAction, showToast]);
+
+  /**
+   * Opens a new draft carrying an existing invoice's details.
+   *
+   * This is the replacement half of void-and-reissue, and the correction path
+   * for anything already issued: the original keeps its number and its void
+   * reason, and the copy is saved as a fresh serial rather than overwriting a
+   * document the purchaser may already hold.
+   */
+  const duplicateVatInvoice = useCallback((invoice: GeneratedVatInvoice) => {
+    setCopilotDraft({
+      kind: "invoice_draft",
+      token: `duplicate-${invoice.id}-${Date.now()}`,
+      fields: {
+        invoiceDate: invoice.invoiceDate,
+        supplyDate: invoice.supplyDate,
+        classificationCode: invoice.classificationCode,
+        treatment: invoice.treatment,
+        supplyType: invoice.supplyType,
+        purchaserName: invoice.purchaserName,
+        purchaserTin: invoice.purchaserTin,
+        purchaserAddress: invoice.purchaserAddress,
+        placeOfSupply: invoice.placeOfSupply,
+        paymentMode: invoice.paymentMode,
+        lines: invoice.lines.map((line) => ({ description: line.description, quantity: line.quantity, unitPriceLkr: line.unitPriceLkr })),
+      },
+    });
+    navigate("invoice-builder");
+    addAudit("human", "Tax invoice duplicated", `A new draft was prefilled from ${invoice.invoiceNumber}. It receives its own serial when saved.`);
+    showToast("Draft prefilled - review it, then save");
+  }, [addAudit, navigate, showToast]);
+
   const createVatInvoice = useCallback(async (invoice: VatInvoiceDraft): Promise<GeneratedVatInvoice | null> => {
     if (!activeProfile || !activePeriod) return null;
     const updated = await postWorkspaceAction({ action: "create_vat_invoice", profileId: activeProfile.id, periodId: activePeriod.id, invoice });
@@ -593,7 +665,8 @@ export default function Page() {
           {view === "account" ? <AccountView user={authUser} onAuthenticated={setAuthUser} /> : null}
           {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} onConfirmRegistration={confirmVatRegistration} /> : null}
           {view === "ramis-api" ? <RamisApiView workspace={workspace} profile={activeProfile} onSave={saveRamisApiProfile} onOpenRegistration={() => navigate("vat-registration")} /> : null}
-          {view === "vat-ledger" ? <VatLedgerView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={createVatTransaction} onCreateInvoice={() => navigate("invoice-builder")} prefill={copilotDraft?.kind === "ledger_draft" ? copilotDraft : null} /> : null}
+          {view === "vat-ledger" ? <VatLedgerView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={createVatTransaction} onDelete={deleteVatTransaction} onCreateInvoice={() => navigate("invoice-builder")} extraction={analyzeResult?.invoice ?? null} extractionMode={analyzeResult?.mode} prefill={copilotDraft?.kind === "ledger_draft" ? copilotDraft : null} /> : null}
+          {view === "invoice-register" ? <InvoiceRegisterView workspace={workspace} profile={activeProfile} busy={workspaceBusy} onIssue={issueVatInvoice} onVoid={voidVatInvoice} onDuplicate={duplicateVatInvoice} onCreate={() => navigate("invoice-builder")} /> : null}
           {view === "invoice-builder" ? <VatInvoiceBuilder profile={activeProfile} period={activePeriod} generated={workspace.generatedInvoices.filter((item) => item.profileId === activeProfile.id && item.periodId === activePeriod.id)} onSave={createVatInvoice} prefill={copilotDraft?.kind === "invoice_draft" ? copilotDraft : null} /> : null}
           {view === "vat-return" ? <VatReturnView workspace={workspace} profile={activeProfile} period={activePeriod} onOpenLedger={() => navigate("vat-ledger")} onClosePeriod={() => navigate("period-close")} onFile={() => navigate("filing")} /> : null}
           {view === "overview" ? <OverviewView result={analyzeResult} futureRules={futureRules} files={inboxCount} onAddFiles={addFiles} onToggleResolve={(id) => navigate(id === "invoice" ? "smart-fix" : "tasks")} onQueueRescueActions={queueRescueActions} onOpenEvidence={openEvidence} onExportPassport={exportPassport} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
