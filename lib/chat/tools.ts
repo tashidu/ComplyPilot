@@ -10,7 +10,8 @@ import { governmentSources, vatInvoiceRulePack, vatRates } from "../government-d
 import { selectInvoiceRuleProfile } from "../rules/rule-selection";
 import { resolveInvoiceDirection } from "../rules/invoice-direction";
 import { filterInvoices, summariseInvoices } from "../vat-invoice-register";
-import { transactionsForSchedule, validateOfficialSchedule } from "../vat-schedule-export";
+import { scheduleRowGaps, transactionsForSchedule, validateOfficialSchedule } from "../vat-schedule-export";
+import { SCHEDULE_CODES, scheduleSpec } from "../vat-schedule-fields";
 import type { AnalyzeResult } from "../types";
 import type { BusinessWorkspace } from "../workspace/workspace";
 
@@ -141,7 +142,7 @@ export const TOOL_DEFINITIONS = [
     function: {
       name: "get_schedule_status",
       description:
-        "State of the official IRD Schedule 01 and 02 for the active period: how many rows each carries, whether a batch has been built and approved, and every validation issue blocking it. Use for questions about whether the schedules are ready to file and what is stopping them.",
+        "State of every official IRD VAT schedule (01 to 07) for the active period: how many rows each carries, whether a batch has been built and approved, validation issues, and the per-row facts still missing - customs references, net mass, exchange rates. Use for questions about whether the schedules are ready to file, what is stopping them, and what the user still has to supply.",
       parameters: { type: "object", properties: {}, required: [] },
     },
   },
@@ -374,13 +375,17 @@ export function runTool(name: string, rawArgs: unknown, ctx: ToolContext): ToolR
       const batches = ctx.workspace.vatScheduleBatches.filter(
         (item) => item.profileId === profile?.id && item.periodId === period.id,
       );
-      const schedules = (["01", "02"] as const).map((code) => {
+      const schedules = SCHEDULE_CODES.map((code) => {
+        const spec = scheduleSpec(code);
         const rows = transactionsForSchedule(transactions, code);
         const issues = validateOfficialSchedule(transactions, period, code);
         const batch = batches.find((item) => item.code === code);
+        const gaps = scheduleRowGaps(transactions, code, ctx.workspace.vatScheduleDetails ?? []);
         return {
           code,
-          name: code === "01" ? "Output / sales" : "Local input / purchases",
+          name: spec.name,
+          covers: spec.covers,
+          ledgerSupportsThisSchedule: spec.supported,
           rowCount: rows.length,
           batchStatus: batch?.status ?? "NOT_BUILT",
           submissionType: batch?.submissionType,
@@ -388,15 +393,23 @@ export function runTool(name: string, rawArgs: unknown, ctx: ToolContext): ToolR
           fileName: batch?.fileName,
           errors: issues.filter((issue) => issue.severity === "ERROR"),
           warnings: issues.filter((issue) => issue.severity === "WARNING"),
+          // What to ask the user for, row by row, in the words the form uses.
+          detailsNeeded: gaps.map((gap) => ({
+            row: gap.rowNumber,
+            invoiceNumber: gap.invoiceNumber,
+            counterparty: gap.counterpartyName,
+            missing: gap.missing.map((field) => ({ field: field.header, hint: field.hint })),
+          })),
         };
-      });
+      }).filter((item) => item.rowCount > 0 || item.batchStatus !== "NOT_BUILT");
       return {
         content: JSON.stringify({
           period: period.label,
           periodStatus: period.status,
           schedules,
           blocking: schedules.filter((item) => item.errors.length > 0).map((item) => item.code),
-          note: "Errors must be fixed in the ledger before a schedule is built. ComplyPilot prepares the file; an authorised person uploads it to e-Services.",
+          awaitingUserDetail: schedules.filter((item) => item.detailsNeeded.length > 0).map((item) => item.code),
+          note: "Ask the user for anything under detailsNeeded - those are facts only they hold, read off the CUSDEC or the export invoice, and the agent must not invent them. Errors are fixed in the ledger. ComplyPilot prepares the file; an authorised person uploads it to e-Services.",
         }),
       };
     }

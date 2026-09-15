@@ -32,7 +32,7 @@ import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
 import type { AuthUser } from "@/lib/auth/types";
-import type { BusinessWorkspace, GeneratedVatInvoice, VatTransaction, WorkspaceTask } from "@/lib/workspace/workspace";
+import type { BusinessWorkspace, GeneratedVatInvoice, VatScheduleCode, VatTransaction, WorkspaceTask } from "@/lib/workspace/workspace";
 
 type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
 
@@ -402,6 +402,21 @@ export default function Page() {
     return Boolean(updated);
   }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
 
+  const saveScheduleDetails = useCallback(async (code: VatScheduleCode, entries: { transactionId: string; values: Record<string, string> }[]) => {
+    if (!activeProfile) return false;
+    setWorkspaceBusy(true);
+    try {
+      const updated = await postWorkspaceAction({ action: "save_schedule_details", profileId: activeProfile.id, code, entries });
+      if (updated) {
+        showToast(`Schedule ${code} details saved`);
+        addAudit("human", "Schedule details supplied", `${entries.length} row(s) on schedule ${code} were completed with facts read from the source documents.`);
+      }
+      return Boolean(updated);
+    } finally {
+      setWorkspaceBusy(false);
+    }
+  }, [activeProfile, addAudit, postWorkspaceAction, showToast]);
+
   const buildVatSchedules = useCallback(async () => {
     if (!activeProfile || !activePeriod) return false;
     setWorkspaceBusy(true);
@@ -730,7 +745,7 @@ export default function Page() {
           {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} onConfirmRegistration={confirmVatRegistration} /> : null}
           {view === "ramis-api" ? <RamisApiView workspace={workspace} profile={activeProfile} onSave={saveRamisApiProfile} onOpenRegistration={() => navigate("vat-registration")} /> : null}
           {view === "vat-ledger" ? <VatLedgerView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={createVatTransaction} onDelete={deleteVatTransaction} onCreateInvoice={() => navigate("invoice-builder")} extraction={analyzeResult?.invoice ?? null} extractionMode={analyzeResult?.mode} prefill={copilotDraft?.kind === "ledger_draft" ? copilotDraft : null} /> : null}
-          {view === "vat-schedules" ? <VatSchedulesView workspace={workspace} profile={activeProfile} period={activePeriod} busy={workspaceBusy} onBuild={buildVatSchedules} onApprove={approveVatSchedule} onVerify={confirmScheduleVerification} onOpenLedger={() => navigate("vat-ledger")} onOpenReturn={() => navigate("vat-return")} /> : null}
+          {view === "vat-schedules" ? <VatSchedulesView workspace={workspace} profile={activeProfile} period={activePeriod} busy={workspaceBusy} onBuild={buildVatSchedules} onApprove={approveVatSchedule} onVerify={confirmScheduleVerification} onSaveDetails={saveScheduleDetails} onOpenLedger={() => navigate("vat-ledger")} onOpenReturn={() => navigate("vat-return")} /> : null}
           {view === "invoice-register" ? <InvoiceRegisterView workspace={workspace} profile={activeProfile} busy={workspaceBusy} onIssue={issueVatInvoice} onVoid={voidVatInvoice} onDuplicate={duplicateVatInvoice} onCreate={() => navigate("invoice-builder")} /> : null}
           {view === "invoice-builder" ? <VatInvoiceBuilder profile={activeProfile} period={activePeriod} generated={workspace.generatedInvoices.filter((item) => item.profileId === activeProfile.id && item.periodId === activePeriod.id)} onSave={createVatInvoice} prefill={copilotDraft?.kind === "invoice_draft" ? copilotDraft : null} /> : null}
           {view === "vat-return" ? <VatReturnView workspace={workspace} profile={activeProfile} period={activePeriod} onOpenLedger={() => navigate("vat-ledger")} onOpenSchedules={() => navigate("vat-schedules")} onClosePeriod={() => navigate("period-close")} onFile={() => navigate("filing")} /> : null}

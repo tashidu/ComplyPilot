@@ -24,7 +24,7 @@ export type VatTransactionKind = "OUTPUT" | "INPUT_LOCAL" | "INPUT_IMPORT";
 export type VatTreatment = "STANDARD_18" | "ZERO_RATED" | "EXEMPT" | "OUT_OF_SCOPE";
 export type VatSupplyType = "GOODS" | "SERVICES";
 export type VatInvoiceStatus = "DRAFT" | "ISSUED" | "VOID";
-export type VatScheduleCode = "01" | "02";
+export type VatScheduleCode = "01" | "02" | "03" | "04" | "05" | "06" | "07";
 export type VatScheduleStatus = "NEEDS_REVIEW" | "READY" | "APPROVED" | "IRD_VERIFIED";
 
 export type BusinessProfile = {
@@ -146,6 +146,20 @@ export type VatScheduleIssue = {
  * The actual rows remain in vatTransactions, so there is only one source of
  * truth and a rebuild can never copy stale invoice amounts into a second store.
  */
+/**
+ * The per-row facts a schedule needs that the ledger does not hold.
+ *
+ * Keyed by transaction and schedule: the same import can appear in the input
+ * schedule and, if the goods are later exported, carry a different set of
+ * customs facts in the export schedule.
+ */
+export type VatScheduleDetail = {
+  transactionId: string;
+  code: VatScheduleCode;
+  values: Record<string, string>;
+  updatedAt: string;
+};
+
 export type VatScheduleBatch = {
   id: string;
   profileId: string;
@@ -284,6 +298,7 @@ export type BusinessWorkspace = {
   vatTransactions: VatTransaction[];
   generatedInvoices: GeneratedVatInvoice[];
   vatScheduleBatches: VatScheduleBatch[];
+  vatScheduleDetails: VatScheduleDetail[];
   updatedAt: string;
 };
 
@@ -494,6 +509,7 @@ export function createDefaultWorkspace(): BusinessWorkspace {
     ],
     generatedInvoices: [],
     vatScheduleBatches: [],
+    vatScheduleDetails: [],
     updatedAt: now,
   };
 }
@@ -519,6 +535,7 @@ export function normaliseWorkspace(input: BusinessWorkspace): BusinessWorkspace 
     vatTransactions: input.vatTransactions ?? [],
     // Invoices stored before issue/void existed are all still DRAFT, which is
     // what an absent status meant at the time.
+    vatScheduleDetails: input.vatScheduleDetails ?? [],
     generatedInvoices: (input.generatedInvoices ?? []).map((invoice) => ({
       ...invoice,
       status: invoice.status ?? "DRAFT",

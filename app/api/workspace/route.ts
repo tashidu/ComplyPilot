@@ -7,7 +7,8 @@ import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-s
 import { buildVatDocumentChecklist, createVatRegistrationDraft, registrationReadiness } from "@/lib/vat-registration";
 import { calculateInvoiceLine, calculateVat, invoiceSerial, resolveTransactionVat, scheduleFor, totalInvoiceLines } from "@/lib/vat-operations";
 import { issueBlocker, voidBlocker } from "@/lib/vat-invoice-register";
-import { officialScheduleFileName, transactionsForSchedule, validateOfficialSchedule, vatPeriodCode } from "@/lib/vat-schedule-export";
+import { officialScheduleFileName, scheduleRowGaps, transactionsForSchedule, validateOfficialSchedule, vatPeriodCode } from "@/lib/vat-schedule-export";
+import { collectedFields } from "@/lib/vat-schedule-fields";
 import {
   activeProfile,
   createId,
@@ -229,6 +230,15 @@ const WorkspaceAction = z.discriminatedUnion("action", [
     action: z.literal("build_vat_schedules"),
     profileId: z.string().min(1).max(100),
     periodId: z.string().min(1).max(100),
+  }),
+  z.object({
+    action: z.literal("save_schedule_details"),
+    profileId: z.string().min(1).max(100),
+    code: z.enum(["01", "02", "03", "04", "05", "06", "07"]),
+    entries: z.array(z.object({
+      transactionId: z.string().min(1).max(100),
+      values: z.record(z.string().min(1).max(60), z.string().trim().max(120)),
+    })).min(1).max(200),
   }),
   z.object({
     action: z.literal("approve_vat_schedule"),
@@ -650,9 +660,28 @@ export async function POST(req: Request) {
       if (period.profileId !== profile.id) throw new WorkspaceRequestError("That VAT period belongs to another business.");
       if (!/^\d{9}$/.test(profile.tin)) throw new WorkspaceRequestError("Save the business's nine-digit TIN before building IRD schedules.");
       const periodTransactions = workspace.vatTransactions.filter((item) => item.periodId === period.id && item.profileId === profile.id);
-      const rebuilt = (["01", "02"] as VatScheduleCode[]).map((code): VatScheduleBatch => {
+      // Every schedule that has rows this period, not a fixed pair. A schedule
+      // nothing maps to is simply not built.
+      const rebuilt = (["01", "02", "03", "04", "05", "06", "07"] as VatScheduleCode[])
+        .filter((code) => transactionsForSchedule(periodTransactions, code).length > 0)
+        .map((code): VatScheduleBatch => {
         const rows = transactionsForSchedule(periodTransactions, code);
         const issues = validateOfficialSchedule(periodTransactions, period, code);
+        // A row missing a customs reference or an exchange rate is not an
+        // invalid row - it is an unanswered question, and it holds the batch at
+        // NEEDS_REVIEW until the user supplies it.
+        const gaps = scheduleRowGaps(periodTransactions, code, workspace.vatScheduleDetails);
+        for (const gap of gaps) {
+          for (const field of gap.missing) {
+            issues.push({
+              transactionId: gap.transactionId,
+              rowNumber: gap.rowNumber,
+              severity: "ERROR",
+              field: field.header,
+              message: `${field.header} is required for schedule ${code}. ${field.hint}`,
+            });
+          }
+        }
         const previous = workspace.vatScheduleBatches.find((item) => item.profileId === profile.id && item.periodId === period.id && item.code === code);
         const amendment = previous?.status === "APPROVED" || previous?.status === "IRD_VERIFIED";
         const versionNumber = amendment ? previous.versionNumber + 1 : previous?.versionNumber ?? 1;
@@ -676,6 +705,33 @@ export async function POST(req: Request) {
         vatScheduleBatches: [...rebuilt, ...workspace.vatScheduleBatches.filter((item) => !replaced.has(`${item.periodId}:${item.code}`))],
         updatedAt: now,
       };
+    } else if (input.action === "save_schedule_details") {
+      const profile = findProfile(workspace, input.profileId);
+      // Only keys this schedule actually asks for are stored. A caller cannot
+      // widen a row into a bag of arbitrary fields that later appear in a file.
+      const allowed = new Set(collectedFields(input.code).map((field) => field.key));
+      const now2 = now;
+      let details = workspace.vatScheduleDetails;
+      for (const entry of input.entries) {
+        const transaction = workspace.vatTransactions.find(
+          (item) => item.id === entry.transactionId && item.profileId === profile.id,
+        );
+        if (!transaction) throw new WorkspaceRequestError("A schedule detail refers to a transaction that does not exist.");
+        const period = workspace.periods.find((item) => item.id === transaction.periodId);
+        if (period?.status === "APPROVED" || period?.status === "SUBMITTED") {
+          throw new WorkspaceRequestError("This VAT period is closed, so its schedule details can no longer be edited.");
+        }
+        const clean = Object.fromEntries(
+          Object.entries(entry.values).filter(([key]) => allowed.has(key)),
+        ) as Record<string, string>;
+        const existing = details.find((item) => item.transactionId === entry.transactionId && item.code === input.code);
+        details = existing
+          ? details.map((item) =>
+              item === existing ? { ...item, values: { ...item.values, ...clean }, updatedAt: now2 } : item,
+            )
+          : [...details, { transactionId: entry.transactionId, code: input.code, values: clean, updatedAt: now2 }];
+      }
+      workspace = { ...workspace, vatScheduleDetails: details, updatedAt: now };
     } else if (input.action === "approve_vat_schedule") {
       const batch = workspace.vatScheduleBatches.find((item) => item.id === input.batchId);
       if (!batch) throw new WorkspaceRequestError("That schedule build does not exist.");

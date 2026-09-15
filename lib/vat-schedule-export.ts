@@ -1,5 +1,6 @@
 import { calculateVat, summariseVatPeriod } from "./vat-operations";
-import type { BusinessProfile, VatPeriodRecord, VatScheduleCode, VatScheduleIssue, VatTransaction } from "./workspace/workspace";
+import { collectedFields, scheduleHeaders, scheduleSpec } from "./vat-schedule-fields";
+import type { BusinessProfile, VatPeriodRecord, VatScheduleCode, VatScheduleDetail, VatScheduleIssue, VatTransaction } from "./workspace/workspace";
 
 export type ScheduleCode = Exclude<VatTransaction["scheduleCode"], "NONE">;
 
@@ -44,10 +45,56 @@ function csvRows(rows: (string | number)[][]): string {
   return rows.map((row) => row.map(csvField).join(",")).join("\r\n");
 }
 
-export const OFFICIAL_SCHEDULE_HEADERS: Record<VatScheduleCode, string[]> = {
-  "01": ["Serial No", "Invoice Date", "Tax Invoice No", "Purchaser's TIN", "Name of the Purchaser", "Description", "Value of supply", "VAT Amount"],
-  "02": ["Serial No", "Invoice Date", "Tax Invoice No", "Supplier's TIN", "Name of the Supplier", "Description", "Value of purchase", "VAT Amount", "Disallowed VAT Amount"],
+/** Kept for callers that only want the header row; the spec is the source. */
+export const OFFICIAL_SCHEDULE_HEADERS: Record<VatScheduleCode, string[]> = Object.fromEntries(
+  (["01", "02", "03", "04", "05", "06", "07"] as VatScheduleCode[]).map((code) => [code, scheduleHeaders(code)]),
+) as Record<VatScheduleCode, string[]>;
+
+/** The extra facts one row still needs before its schedule can be built. */
+export type ScheduleRowGap = {
+  transactionId: string;
+  rowNumber: number;
+  invoiceNumber: string;
+  invoiceDate: string;
+  counterpartyName: string;
+  missing: { key: string; header: string; input: "text" | "date" | "number"; hint: string }[];
 };
+
+function detailsFor(details: VatScheduleDetail[], transactionId: string, code: VatScheduleCode) {
+  return details.find((item) => item.transactionId === transactionId && item.code === code)?.values ?? {};
+}
+
+/**
+ * What the user still has to supply before this schedule can be produced.
+ *
+ * Only required columns count as a gap. An optional one - an NRFC account on an
+ * export that was not settled through one - is left blank rather than standing
+ * between the business and its filing.
+ */
+export function scheduleRowGaps(
+  transactions: VatTransaction[],
+  code: VatScheduleCode,
+  details: VatScheduleDetail[] = [],
+): ScheduleRowGap[] {
+  const needed = collectedFields(code).filter((field) => field.required);
+  if (!needed.length) return [];
+  return transactionsForSchedule(transactions, code)
+    .map((item, index) => {
+      const values = detailsFor(details, item.id, code);
+      const missing = needed
+        .filter((field) => String(values[field.key] ?? "").trim() === "")
+        .map(({ key, header, input, hint }) => ({ key, header, input, hint }));
+      return {
+        transactionId: item.id,
+        rowNumber: index + 1,
+        invoiceNumber: item.invoiceNumber,
+        invoiceDate: item.invoiceDate,
+        counterpartyName: item.counterpartyName,
+        missing,
+      };
+    })
+    .filter((row) => row.missing.length > 0);
+}
 
 /** Converts our ISO date to the date shape used by the IRD workbook. */
 export function toIrdDate(value: string): string {
@@ -78,20 +125,56 @@ export function officialScheduleFileName(
   return `${profile.tin}_VAT_SCHEDULE${code}_${vatPeriodCode(period)}_${date}_${submissionType}_V${versionNumber}.csv`;
 }
 
-/** Exact Schedule 01/02 columns from the IRD v1.8 workbooks. */
-export function buildOfficialScheduleCsv(transactions: VatTransaction[], code: VatScheduleCode): string {
-  const rows = transactionsForSchedule(transactions, code).map((item, index) => [
-    String(index + 1),
-    toIrdDate(item.invoiceDate),
-    item.invoiceNumber,
-    item.counterpartyTin,
-    item.counterpartyName,
-    item.description,
-    item.netAmountLkr,
-    item.vatAmountLkr,
-    ...(code === "02" ? [item.disallowedInputVatLkr] : []),
-  ]);
-  return csvRows([OFFICIAL_SCHEDULE_HEADERS[code], ...rows]);
+/**
+ * The schedule, in the column order IRD's verifier expects.
+ *
+ * Driven by the spec rather than written out per schedule, so a column only
+ * ever has one definition and 03 through 07 cannot drift from 01 and 02.
+ * A collected value that is absent is written blank; scheduleRowGaps is what
+ * stops a schedule being built in that state.
+ */
+/**
+ * One schedule row's cells, in column order.
+ *
+ * Shared by the CSV writer and the on-screen preview so the table a reviewer
+ * approves is built from the same code as the file they then upload. Two
+ * renderings of the same row are two chances to disagree.
+ */
+export function scheduleRowCells(
+  item: VatTransaction,
+  index: number,
+  code: VatScheduleCode,
+  details: VatScheduleDetail[] = [],
+): (string | number)[] {
+  const values = detailsFor(details, item.id, code);
+  return scheduleSpec(code).fields.map((field) => {
+    if (field.kind === "collected") {
+      const value = String(values[field.key] ?? "").trim();
+      if (!value) return "";
+      if (field.input === "date") return toIrdDate(value);
+      // Written as the user entered it, not reformatted. These are figures read
+      // off a CUSDEC or an export invoice - an exchange rate carries four
+      // decimals, a net mass is kilograms, neither is money - and rounding them
+      // to two places would change what the document said.
+      return value;
+    }
+    if (field.from === "serial") return String(index + 1);
+    const raw = item[field.from];
+    if (field.format === "ird-date") return toIrdDate(String(raw ?? ""));
+    if (field.format === "money") return typeof raw === "number" ? raw : 0;
+    return raw === null || raw === undefined ? "" : String(raw);
+  });
+}
+
+export function buildOfficialScheduleCsv(
+  transactions: VatTransaction[],
+  code: VatScheduleCode,
+  details: VatScheduleDetail[] = [],
+): string {
+  const rows = transactionsForSchedule(transactions, code).map((item, index) =>
+    scheduleRowCells(item, index, code, details),
+  );
+  return csvRows([scheduleHeaders(code), ...rows]);
 }
 
 export function validateOfficialSchedule(
@@ -135,7 +218,15 @@ export function scheduleDefinition(code: ScheduleCode): ScheduleDefinition {
   return definition;
 }
 
-export function transactionsForSchedule(transactions: VatTransaction[], code: ScheduleCode): VatTransaction[] {
+/**
+ * The rows that belong in one schedule.
+ *
+ * Accepts every schedule code, including 04 and 05, which no transaction is
+ * ever mapped to: those cover credit notes and deemed input credit, which the
+ * ledger does not model. They return empty rather than being a type error, so
+ * callers can walk all seven schedules uniformly.
+ */
+export function transactionsForSchedule(transactions: VatTransaction[], code: VatScheduleCode): VatTransaction[] {
   return transactions
     .filter((item) => item.scheduleCode === code)
     .sort((a, b) => a.invoiceDate.localeCompare(b.invoiceDate) || a.invoiceNumber.localeCompare(b.invoiceNumber));

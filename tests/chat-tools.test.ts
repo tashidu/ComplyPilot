@@ -218,11 +218,49 @@ describe("find_invoices", () => {
 });
 
 describe("get_schedule_status", () => {
-  it("reports both schedules, scoped to the active period", () => {
+  it("reports the schedules this period actually has rows in", () => {
+    // Listing all seven when six are empty would bury the one that matters.
     const r = parse(runTool("get_schedule_status", {}, REGISTER_CTX).content);
     expect(r.period).toBe("October 2026");
-    expect(r.schedules.map((s: any) => s.code)).toEqual(["01", "02"]);
-    expect(r.schedules[0]).toMatchObject({ rowCount: 1, batchStatus: "NOT_BUILT", errors: [] });
+    expect(r.schedules.map((s: any) => s.code)).toEqual(["01"]);
+    expect(r.schedules[0]).toMatchObject({ rowCount: 1, batchStatus: "NOT_BUILT", errors: [], detailsNeeded: [] });
+  });
+
+  it("asks for the customs facts an import row needs, with the hint to relay", () => {
+    const withImport = JSON.parse(JSON.stringify(REGISTER_CTX));
+    withImport.workspace.vatTransactions.push({
+      id: "T3", profileId: "P1", periodId: "PER-OCT", kind: "INPUT_IMPORT", treatment: "STANDARD_18",
+      supplyType: "GOODS", invoiceNumber: "IMP-77", invoiceDate: "2026-10-11", counterpartyName: "Overseas Mill",
+      counterpartyTin: "400111222", description: "Raw material", netAmountLkr: 200_000, vatRate: 18,
+      vatAmountLkr: 36_000, grossAmountLkr: 236_000, disallowedInputVatLkr: 0, scheduleCode: "03",
+      source: "MANUAL", createdAt: "",
+    });
+    const r = parse(runTool("get_schedule_status", {}, withImport as never).content);
+    expect(r.awaitingUserDetail).toContain("03");
+    const schedule03 = r.schedules.find((s: any) => s.code === "03");
+    expect(schedule03.detailsNeeded[0]).toMatchObject({ invoiceNumber: "IMP-77" });
+    expect(schedule03.detailsNeeded[0].missing.map((m: any) => m.field)).toContain("Cusdec No");
+    expect(schedule03.detailsNeeded[0].missing[0].hint.length).toBeGreaterThan(10);
+  });
+
+  it("stops asking once the facts have been supplied", () => {
+    const withImport = JSON.parse(JSON.stringify(REGISTER_CTX));
+    withImport.workspace.vatTransactions.push({
+      id: "T3", profileId: "P1", periodId: "PER-OCT", kind: "INPUT_IMPORT", treatment: "STANDARD_18",
+      supplyType: "GOODS", invoiceNumber: "IMP-77", invoiceDate: "2026-10-11", counterpartyName: "Overseas Mill",
+      counterpartyTin: "400111222", description: "Raw material", netAmountLkr: 200_000, vatRate: 18,
+      vatAmountLkr: 36_000, grossAmountLkr: 236_000, disallowedInputVatLkr: 0, scheduleCode: "03",
+      source: "MANUAL", createdAt: "",
+    });
+    withImport.workspace.vatScheduleDetails = [{
+      transactionId: "T3", code: "03", updatedAt: "",
+      values: {
+        cusdecDate: "2026-10-10", cusdecNo: "CUS-900", vatDeferred: "0", vatUpfront: "36000",
+        cusdecSerialId: "S-1", cusdecOfficeId: "OF-1", cusdecRegDate: "2026-10-10",
+      },
+    }];
+    const r = parse(runTool("get_schedule_status", {}, withImport as never).content);
+    expect(r.awaitingUserDetail).not.toContain("03");
   });
 
   it("names what is blocking a schedule rather than only that it is blocked", () => {
