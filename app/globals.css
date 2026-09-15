@@ -2395,6 +2395,720 @@ td small {
   }
 }
 
+/* ------------------------------------------------ full VAT lifecycle */
+
+.lifecycle-choice {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.lifecycle-choice button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.lifecycle-choice button.active,
+.lifecycle-choice button:hover {
+  border-color: var(--brand-strong);
+  background: var(--brand-soft);
+}
+
+.lifecycle-choice button > span {
+  color: var(--brand-text);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+}
+
+.lifecycle-choice button > strong {
+  font-size: 18px;
+}
+
+.lifecycle-choice button > small {
+  max-width: 580px;
+  color: var(--muted);
+}
+
+.lifecycle-steps {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.lifecycle-steps button {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+}
+
+.lifecycle-steps button:hover {
+  border-color: var(--brand-strong);
+  background: var(--brand-soft);
+}
+
+.lifecycle-steps button > b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.lifecycle-steps button.done > b {
+  background: var(--mint);
+  color: white;
+}
+
+.lifecycle-steps button > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.lifecycle-steps small {
+  color: var(--muted);
+}
+
+.lifecycle-steps em {
+  color: var(--brand-text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.vat-active-banner,
+.registration-blocked {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #cfe0cc;
+  border-radius: var(--radius-sm);
+  background: var(--mint-soft);
+}
+
+.vat-active-banner > span {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--mint);
+  color: white;
+  font-weight: 800;
+}
+
+.vat-active-banner > div {
+  flex: 1;
+}
+
+.vat-active-banner p,
+.registration-blocked p {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.registration-blocked {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.registration-confirm {
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) minmax(160px, 0.55fr) minmax(230px, 0.8fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+}
+
+.registration-confirm p {
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.registration-confirm label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.registration-confirm input {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ramis-grid {
+  align-items: start;
+  margin-top: 16px;
+}
+
+.api-facts h2 {
+  margin: 5px 0 16px;
+}
+
+.api-facts ol {
+  display: grid;
+  gap: 12px;
+  padding-left: 24px;
+}
+
+.api-facts li::marker {
+  color: var(--brand-strong);
+  font-weight: 800;
+}
+
+.api-facts li span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.api-facts .button {
+  margin-top: 10px;
+  text-align: center;
+  text-decoration: none;
+}
+
+.vat-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.vat-metric {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--brand);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.vat-metric.ok { border-top-color: var(--mint); }
+.vat-metric.warn { border-top-color: var(--amber); }
+.vat-metric.bad { border-top-color: var(--red); }
+
+.vat-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vat-metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 19px;
+}
+
+.ledger-grid,
+.return-grid {
+  align-items: start;
+}
+
+.calculation-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+}
+
+.calculation-strip span {
+  display: flex;
+  flex-direction: column;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.calculation-strip b {
+  color: var(--ink);
+  font-size: 13px;
+  text-transform: none;
+}
+
+.calculation-strip i {
+  color: var(--brand-text);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ledger-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.ledger-list > div {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.transaction-kind {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--brand-soft);
+  color: var(--brand-text);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.transaction-kind.input {
+  background: var(--mint-soft);
+  color: var(--mint);
+}
+
+.ledger-list section,
+.ledger-list aside {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.ledger-list small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.ledger-list aside {
+  align-items: flex-end;
+}
+
+.invoice-builder-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
+  align-items: start;
+  gap: 16px;
+}
+
+.invoice-lines {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.invoice-line-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.invoice-line {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 75px 120px 105px 30px;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 7px;
+}
+
+.invoice-line input {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--canvas);
+}
+
+.invoice-line > strong {
+  font-size: 11px;
+  text-align: right;
+}
+
+.invoice-line > button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.tax-invoice-preview {
+  position: sticky;
+  top: 84px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  background: white;
+  box-shadow: var(--shadow);
+  color: #171717;
+}
+
+.tax-invoice-preview header,
+.tax-invoice-preview footer,
+.invoice-parties {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.tax-invoice-preview header > div,
+.invoice-parties > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.tax-invoice-preview header > div:last-child {
+  align-items: flex-end;
+}
+
+.tax-invoice-preview header span {
+  margin-bottom: 7px;
+  color: #8a6500;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.tax-invoice-preview header p,
+.tax-invoice-preview header small,
+.invoice-parties span {
+  color: #696969;
+  font-size: 10.5px;
+}
+
+.invoice-parties {
+  margin: 22px 0;
+  padding: 14px 0;
+  border-top: 1px solid #e4e4e4;
+  border-bottom: 1px solid #e4e4e4;
+}
+
+.invoice-parties > div {
+  width: 50%;
+}
+
+.invoice-parties small {
+  color: #8a6500;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.tax-invoice-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.tax-invoice-preview th,
+.tax-invoice-preview td {
+  padding: 8px 5px;
+  border-bottom: 1px solid #ededed;
+  text-align: right;
+}
+
+.tax-invoice-preview th:first-child,
+.tax-invoice-preview td:first-child {
+  text-align: left;
+}
+
+.tax-invoice-preview footer {
+  align-items: flex-end;
+  margin-top: 20px;
+}
+
+.tax-invoice-preview footer > div {
+  display: flex;
+  flex-direction: column;
+  color: #696969;
+  font-size: 9.5px;
+}
+
+.tax-invoice-preview dl {
+  width: 210px;
+  margin: 0;
+}
+
+.tax-invoice-preview dl > div {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.tax-invoice-preview dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.tax-invoice-preview .total {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 2px solid #171717;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.invoice-draft-note {
+  margin-top: 24px;
+  padding-top: 10px;
+  border-top: 1px solid #ededed;
+  color: #777;
+  font-size: 9px;
+  text-align: center;
+}
+
+.vat-return-equation {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1fr;
+  align-items: stretch;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.vat-return-equation > div {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.vat-return-equation > b {
+  align-self: center;
+  color: var(--brand-text);
+  font-size: 24px;
+}
+
+.vat-return-equation span,
+.vat-return-equation small {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vat-return-equation strong {
+  margin-top: 4px;
+  font-size: 20px;
+}
+
+.vat-return-equation .payable {
+  border-color: #e8c2be;
+  background: var(--red-soft);
+}
+
+.vat-return-equation .credit {
+  border-color: #cfe0cc;
+  background: var(--mint-soft);
+}
+
+.schedule-map,
+.return-gates {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.schedule-map > div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.schedule-map > div > b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--brand);
+}
+
+.schedule-map > div > span,
+.return-gates > div > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.schedule-map small,
+.return-gates small {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.schedule-map em {
+  min-width: 26px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  font-style: normal;
+  font-weight: 800;
+  text-align: center;
+}
+
+.return-gates > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+}
+
+.return-gates > div > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-weight: 800;
+}
+
+.return-gates > div.ok > span {
+  background: var(--mint-soft);
+  color: var(--mint);
+}
+
+.return-actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.return-actions p {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+@media (max-width: 1180px) {
+  .vat-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .invoice-builder-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tax-invoice-preview {
+    position: static;
+  }
+
+  .registration-confirm {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .lifecycle-choice,
+  .vat-summary-grid,
+  .vat-return-equation {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .vat-return-equation > b {
+    display: none;
+  }
+
+  .lifecycle-steps button {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .lifecycle-steps em {
+    grid-column: 2;
+  }
+
+  .registration-confirm,
+  .invoice-line {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .calculation-strip,
+  .tax-invoice-preview header,
+  .tax-invoice-preview footer,
+  .invoice-parties {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invoice-parties > div {
+    width: 100%;
+  }
+
+  .tax-invoice-preview header > div:last-child {
+    align-items: flex-start;
+  }
+}
+
+@media print {
+  .sidebar,
+  .topbar,
+  .page-head,
+  .no-print,
+  .copilot-launcher,
+  .copilot-panel,
+  .toast {
+    display: none !important;
+  }
+
+  .shell,
+  .main,
+  .content,
+  .invoice-builder-grid {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    background: white;
+  }
+
+  .tax-invoice-preview {
+    position: static;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
 /* ------------------------------------------- persistent VAT workspace */
 
 .nav {
@@ -3441,4 +4155,118 @@ td small {
   .gate-card {
     padding: 20px;
   }
+}
+
+/* ------------------------------------------- copilot: full screen + drafts */
+
+/* Expand sits at the head's leading edge, so it reads as "grow this panel"
+   rather than as another action on the conversation. */
+.copilot-expand {
+  order: -1;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 2px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.copilot-expand:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--ink);
+}
+
+.copilot-panel.expanded {
+  position: fixed;
+  inset: 16px;
+  width: auto;
+  max-width: none;
+  height: auto;
+  max-height: none;
+  z-index: 60;
+}
+
+@media (max-width: 640px) {
+  .copilot-panel.expanded {
+    inset: 0;
+    border-radius: 0;
+  }
+}
+
+.copilot-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.copilot-tools code {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--line-soft);
+  color: var(--ink-soft);
+  font-size: 10.5px;
+}
+
+.copilot-proposal {
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid var(--brand-strong);
+  border-radius: var(--radius-sm);
+  background: var(--brand-soft);
+}
+
+.copilot-proposal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.copilot-proposal p {
+  margin-bottom: 8px;
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.copilot-proposal-fields {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 8px;
+}
+
+.copilot-proposal-fields > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+}
+
+.copilot-proposal-fields dt {
+  color: var(--brand-text);
+}
+
+.copilot-proposal-fields dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  text-align: right;
+}
+
+.copilot-proposal-notes {
+  margin: 0 0 10px;
+  padding-left: 16px;
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  line-height: 1.5;
 }

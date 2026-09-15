@@ -11,6 +11,19 @@ type Message = {
   mode?: ChatMode;
   fallbackReason?: string | null;
   sources?: Source[];
+  toolsUsed?: string[];
+  proposals?: Proposal[];
+};
+
+/**
+ * A draft the copilot prepared. It is not saved: the user reviews it and
+ * applies it into the matching form, which is where it becomes a record.
+ */
+type Proposal = {
+  kind: "invoice_draft" | "ledger_draft";
+  summary: string;
+  fields: Record<string, unknown>;
+  reviewNotes: string[];
 };
 
 const STARTER: Message = {
@@ -22,21 +35,26 @@ const STARTER: Message = {
 
 const QUICK_QUESTIONS = [
   "How do I register for VAT?",
-  "What VAT registration documents do I need?",
-  "Do I exceed the VAT threshold?",
-  "Is my VAT application ready?",
+  "How do I connect to the RAMIS Web API?",
+  "What is my input and output VAT balance?",
+  "Draft a tax invoice for 250,000 of consultancy",
+  "What is 18% VAT on 450,000?",
 ];
 
 export function DataCopilot({
   runId,
   contextVersion,
   onAuditEvent,
+  onApplyProposal,
 }: {
   runId: string;
   contextVersion: string;
   onAuditEvent?: (mode: ChatMode) => void;
+  /** Opens the matching form pre-filled with a draft the copilot prepared. */
+  onApplyProposal?: (kind: Proposal["kind"], fields: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([STARTER]);
   const [busy, setBusy] = useState(false);
@@ -98,6 +116,8 @@ export function DataCopilot({
           mode,
           fallbackReason: data.fallbackReason,
           sources: data.sources,
+          toolsUsed: data.toolsUsed,
+          proposals: data.proposals,
         },
       ]);
       onAuditEvent?.(mode);
@@ -131,8 +151,21 @@ export function DataCopilot({
   return (
     <>
       {open ? (
-        <section className="copilot-panel" role="dialog" aria-label="ComplyPilot VAT Copilot">
+        <section
+          className={`copilot-panel${expanded ? " expanded" : ""}`}
+          role="dialog"
+          aria-label="ComplyPilot VAT Copilot"
+        >
           <header className="copilot-head">
+            <button
+              className="copilot-expand"
+              onClick={() => setExpanded((value) => !value)}
+              aria-pressed={expanded}
+              aria-label={expanded ? "Shrink the copilot" : "Expand the copilot to full screen"}
+              title={expanded ? "Shrink" : "Expand to full screen"}
+            >
+              {expanded ? "⤡" : "⤢"}
+            </button>
             <div className="copilot-mark" aria-hidden="true">CP</div>
             <div>
               <strong>VAT Copilot</strong>
@@ -159,6 +192,51 @@ export function DataCopilot({
                     </span>
                   ) : null}
                 </div>
+                {message.toolsUsed?.length ? (
+                  <div className="copilot-tools">
+                    <span>Used</span>
+                    {Array.from(new Set(message.toolsUsed)).map((tool) => (
+                      <code key={tool}>{tool}</code>
+                    ))}
+                  </div>
+                ) : null}
+                {message.proposals?.map((proposal, index) => (
+                  <div className="copilot-proposal" key={`${message.id}-draft-${index}`}>
+                    <div className="copilot-proposal-head">
+                      <strong>
+                        {proposal.kind === "invoice_draft" ? "Draft tax invoice" : "Draft ledger entry"}
+                      </strong>
+                      <span className="tag warn">NOT SAVED</span>
+                    </div>
+                    <p>{proposal.summary}</p>
+                    <dl className="copilot-proposal-fields">
+                      {Object.entries(proposal.fields)
+                        .filter(([, value]) => value !== "" && value !== null && value !== undefined)
+                        .slice(0, 8)
+                        .map(([key, value]) => (
+                          <div key={key}>
+                            <dt>{key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}</dt>
+                            <dd>{Array.isArray(value) ? `${value.length} line(s)` : String(value)}</dd>
+                          </div>
+                        ))}
+                    </dl>
+                    {proposal.reviewNotes.length ? (
+                      <ul className="copilot-proposal-notes">
+                        {proposal.reviewNotes.map((note) => (
+                          <li key={note}>{note}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {/* Applying opens the matching form pre-filled. Saving stays a
+                        deliberate act in that form, not a click in a chat window. */}
+                    <button
+                      className="button small"
+                      onClick={() => onApplyProposal?.(proposal.kind, proposal.fields)}
+                    >
+                      Review in the form →
+                    </button>
+                  </div>
+                ))}
                 {message.sources?.length ? (
                   <div className="copilot-sources">
                     <span>Sources</span>
