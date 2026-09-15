@@ -27,7 +27,7 @@ export function AuditView({
         <div className="audit">
           {[...events].reverse().map((event, index) => (
             <div className="audit-item" key={`${event.time}-${index}`}>
-              <div className="audit-time">{event.time}</div>
+              <div className="audit-time mono">{event.time}</div>
               <div className="audit-rail">
                 <span className={`audit-dot${event.actor === "human" ? " human" : ""}`} />
               </div>

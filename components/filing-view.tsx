@@ -45,6 +45,49 @@ export function FilingView({
         }
       />
 
+      {/* The authorisation and the submission are the point of this screen, so
+          they sit together in the one hero rather than at the foot of a
+          checklist competing with the package table beside it. */}
+      <article className="card filing-hero">
+        <div className="filing-hero-top">
+          <div className="filing-hero-score">
+            <strong className="mono">{score}</strong>
+            <span>/100 readiness</span>
+          </div>
+          <div className="filing-hero-text">
+            <span className="filing-hero-state">{submitted ? "Submitted" : ready ? "Ready to submit" : "Not ready"}</span>
+            <h2>{periodLabel}</h2>
+            <p>
+              {submitted
+                ? "The mock portal accepted this package. The acknowledgement is in the submission history."
+                : ready
+                  ? "Every gate has passed. Confirm the authorisation below to release the package to the mock portal."
+                  : `${!periodApproved ? "The period is not closed yet" : `${openBlockers.length} blocker${openBlockers.length === 1 ? "" : "s"} still require action`}.`}
+            </p>
+          </div>
+        </div>
+
+        <label className="filing-hero-approval">
+          <input
+            type="checkbox"
+            checked={approved}
+            onChange={(event) => onApprovalChange(event.target.checked)}
+          />
+          <span>
+            I reviewed the evidence packet and authorise this mock submission. I understand that
+            this prototype does not file with the live IRD portal.
+          </span>
+        </label>
+
+        <button
+          className="button wide filing-hero-submit"
+          disabled={!ready || !approved || submitted}
+          onClick={onSubmit}
+        >
+          {submitted ? "Mock submission completed" : "Submit to mock portal"}
+        </button>
+      </article>
+
       <div className="grid two">
         <article className="card pad">
           <div className="card-head">
@@ -52,7 +95,7 @@ export function FilingView({
               <h2>Submission readiness</h2>
               <p>{periodLabel} must be closed by an authorised reviewer before the mock action is enabled.</p>
             </div>
-            <strong>{score}/100</strong>
+            <strong className="mono">{score}/100</strong>
           </div>
 
           <div className="checklist">
@@ -97,28 +140,6 @@ export function FilingView({
             </div>
           </div>
 
-          <div className="approval">
-            <label>
-              <input
-                type="checkbox"
-                checked={approved}
-                onChange={(event) => onApprovalChange(event.target.checked)}
-              />
-              <span>
-                I reviewed the evidence packet and authorise this mock submission. I understand that
-                this prototype does not file with the live IRD portal.
-              </span>
-            </label>
-          </div>
-
-          <button
-            className="button success wide"
-            style={{ marginTop: 12 }}
-            disabled={!ready || !approved || submitted}
-            onClick={onSubmit}
-          >
-            {submitted ? "Mock submission completed" : "Submit to mock portal"}
-          </button>
         </article>
 
         <article className="card pad">
@@ -175,7 +196,7 @@ function PackageRow({
         <strong>{name}</strong>
         <small>{note}</small>
       </td>
-      <td style={{ textAlign: "right" }}>
+      <td className="text-right">
         <span className={`tag ${ok ? "ok" : "warn"}`}>{status}</span>
       </td>
     </tr>

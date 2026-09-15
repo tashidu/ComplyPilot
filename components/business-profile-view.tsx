@@ -49,6 +49,26 @@ const EMPTY_PROFILE: ProfileFormValue = {
   ramisConnection: "NOT_CONNECTED",
 };
 
+function FormSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="form-section">
+      <div className="form-section-head">
+        <h3>{title}</h3>
+        <p>{hint}</p>
+      </div>
+      <div className="workspace-form-grid">{children}</div>
+    </section>
+  );
+}
+
 function formValue(profile: BusinessProfile): ProfileFormValue {
   return {
     legalName: profile.legalName,
@@ -153,7 +173,7 @@ export function BusinessProfileView({
             }}
           >
             <strong>{profile.displayName}</strong>
-            <span>{profile.tin ? `TIN ${profile.tin}` : "TIN not added"}</span>
+            <span>{profile.tin ? <>TIN <span className="mono">{profile.tin}</span></> : "TIN not added"}</span>
             <small>{profile.isSynthetic ? "Synthetic demo profile" : profile.filingFrequency.toLowerCase()}</small>
           </button>
         ))}
@@ -168,7 +188,14 @@ export function BusinessProfileView({
           <span className={`tag ${complete ? "ok" : "warn"}`}>{complete ? "Profile complete" : "Required fields missing"}</span>
         </div>
 
-        <div className="workspace-form-grid">
+        {/* Nineteen fields in one flat grid gave no clue which of them the IRD
+            actually checks. They are grouped by where the answer comes from:
+            the company's own records, the IRD's confirmations, and the people
+            who operate the account. */}
+        <FormSection
+          title="Who the business is"
+          hint="From the incorporation and Registrar of Companies records."
+        >
           <label>
             <span>Legal business name</span>
             <input value={value.legalName} onChange={(event) => update("legalName", event.target.value)} />
@@ -183,11 +210,21 @@ export function BusinessProfileView({
               <option value="COMPANY">Company</option><option value="INDIVIDUAL_PROPRIETORSHIP">Individual / proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="OTHER">Other</option>
             </select>
           </label>
-          <label><span>Business Registration number</span><input value={value.businessRegistrationNumber} onChange={(event) => update("businessRegistrationNumber", event.target.value)} /></label>
-          <label><span>Incorporation / registration date</span><input type="date" value={value.incorporationDate} onChange={(event) => update("incorporationDate", event.target.value)} /></label>
+          <label><span>Business Registration number</span><input className="mono" value={value.businessRegistrationNumber} onChange={(event) => update("businessRegistrationNumber", event.target.value)} /></label>
+          <label><span>Incorporation / registration date</span><input className="mono" type="date" value={value.incorporationDate} onChange={(event) => update("incorporationDate", event.target.value)} /></label>
+          <label>
+            <span>Industry</span>
+            <input value={value.industry} onChange={(event) => update("industry", event.target.value)} />
+          </label>
+        </FormSection>
+
+        <FormSection
+          title="What the IRD has confirmed"
+          hint="Enter only what the IRD has issued or acknowledged. Never a password or PIN."
+        >
           <label>
             <span>TIN — nine digits</span>
-            <input inputMode="numeric" maxLength={9} value={value.tin} onChange={(event) => update("tin", event.target.value.replace(/\D/g, ""))} />
+            <input className="mono" inputMode="numeric" maxLength={9} value={value.tin} onChange={(event) => update("tin", event.target.value.replace(/\D/g, ""))} />
           </label>
           <label>
             <span>IRD e-Services PIN / SSID status</span>
@@ -203,8 +240,8 @@ export function BusinessProfileView({
               <option value="NOT_SET">Not set</option>
             </select>
           </label>
-          <label><span>VAT effective date — IRD confirmed</span><input type="date" value={value.vatRegistrationEffectiveDate} onChange={(event) => update("vatRegistrationEffectiveDate", event.target.value)} /></label>
-          <label><span>VAT certificate / acknowledgement reference</span><input placeholder="Do not enter an IRD password or PIN" value={value.vatRegistrationCertificateRef} onChange={(event) => update("vatRegistrationCertificateRef", event.target.value)} /></label>
+          <label><span>VAT effective date — IRD confirmed</span><input className="mono" type="date" value={value.vatRegistrationEffectiveDate} onChange={(event) => update("vatRegistrationEffectiveDate", event.target.value)} /></label>
+          <label><span>VAT certificate / acknowledgement reference</span><input className="mono" placeholder="Do not enter an IRD password or PIN" value={value.vatRegistrationCertificateRef} onChange={(event) => update("vatRegistrationCertificateRef", event.target.value)} /></label>
           <label>
             <span>Return filing frequency</span>
             <select value={value.filingFrequency} onChange={(event) => update("filingFrequency", event.target.value as ProfileFormValue["filingFrequency"])}>
@@ -212,16 +249,18 @@ export function BusinessProfileView({
               <option value="QUARTERLY">Quarterly — every 3 months</option>
             </select>
           </label>
-          <label>
-            <span>Industry</span>
-            <input value={value.industry} onChange={(event) => update("industry", event.target.value)} />
-          </label>
+        </FormSection>
+
+        <FormSection
+          title="Where to reach it, and who signs off"
+          hint="The reviewer named here is the person a filing is attributed to."
+        >
           <label className="span-two">
             <span>Business address</span>
             <input value={value.address} onChange={(event) => update("address", event.target.value)} />
           </label>
-          <label><span>Postal code</span><input inputMode="numeric" value={value.postalCode} onChange={(event) => update("postalCode", event.target.value)} /></label>
-          <label><span>Business phone</span><input type="tel" value={value.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} /></label>
+          <label><span>Postal code</span><input className="mono" inputMode="numeric" value={value.postalCode} onChange={(event) => update("postalCode", event.target.value)} /></label>
+          <label><span>Business phone</span><input className="mono" type="tel" value={value.contactPhone} onChange={(event) => update("contactPhone", event.target.value)} /></label>
           <label>
             <span>Finance email</span>
             <input type="email" value={value.financeEmail} onChange={(event) => update("financeEmail", event.target.value)} />
@@ -240,7 +279,7 @@ export function BusinessProfileView({
               <option value="LIVE_APPROVED">IRD-approved Web API</option>
             </select>
           </label>
-        </div>
+        </FormSection>
 
         <div className="form-actions">
           {creating ? <button className="button" onClick={() => setCreating(false)}>Cancel</button> : null}

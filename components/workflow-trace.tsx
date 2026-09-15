@@ -47,17 +47,18 @@ export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
             </span>
             <div className="trace-body">
               <strong>
-                <span className="trace-ordinal">{stage.ordinal}</span>
+                <span className="trace-ordinal mono">{stage.ordinal}</span>
                 {stage.name}
               </strong>
               <span>{stage.detail ?? stage.role}</span>
               {stage.muleRun ? (
                 <span className="trace-remote">
-                  MuleRun reported {stage.muleRun.status} in {stage.muleRun.ms} ms
+                  MuleRun reported {stage.muleRun.status} in{" "}
+                  <span className="mono">{stage.muleRun.ms} ms</span>
                 </span>
               ) : null}
             </div>
-            <span className="trace-ms">{stage.ms > 0 ? `${stage.ms} ms` : "—"}</span>
+            <span className="trace-ms mono">{stage.ms > 0 ? `${stage.ms} ms` : "—"}</span>
           </div>
         ))}
       </div>
@@ -74,7 +75,7 @@ export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
                 <strong>{stage.name}</strong>
                 {stage.detail ? <span>{stage.detail}</span> : null}
               </div>
-              <span className="trace-ms">{stage.ms > 0 ? `${stage.ms} ms` : "—"}</span>
+              <span className="trace-ms mono">{stage.ms > 0 ? `${stage.ms} ms` : "—"}</span>
             </div>
           ))}
         </div>
@@ -85,8 +86,13 @@ export function WorkflowTrace({ result }: { result: AnalyzeResult }) {
           {workflow.gate === "READY_TO_FILE" ? "READY_TO_FILE" : "NEEDS_HUMAN"}
         </span>
         <span className="subtle">
-          Run {result.runId}
-          {workflow.executionId ? ` · MuleRun execution ${workflow.executionId}` : ""}
+          Run <span className="mono">{result.runId}</span>
+          {workflow.executionId ? (
+            <>
+              {" · MuleRun execution "}
+              <span className="mono">{workflow.executionId}</span>
+            </>
+          ) : ""}
         </span>
       </div>
 

@@ -167,7 +167,7 @@ export function DataCopilot({
               {expanded ? "⤡" : "⤢"}
             </button>
             <div className="copilot-mark" aria-hidden="true">CP</div>
-            <div>
+            <div className="copilot-head-text">
               <strong>VAT Copilot</strong>
               <span>Grounded in your profile + official sources</span>
             </div>
@@ -196,7 +196,7 @@ export function DataCopilot({
                   <div className="copilot-tools">
                     <span>Used</span>
                     {Array.from(new Set(message.toolsUsed)).map((tool) => (
-                      <code key={tool}>{tool}</code>
+                      <code className="mono" key={tool}>{tool}</code>
                     ))}
                   </div>
                 ) : null}
@@ -216,7 +216,7 @@ export function DataCopilot({
                         .map(([key, value]) => (
                           <div key={key}>
                             <dt>{key.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())}</dt>
-                            <dd>{Array.isArray(value) ? `${value.length} line(s)` : String(value)}</dd>
+                            <dd className="mono">{Array.isArray(value) ? `${value.length} line(s)` : String(value)}</dd>
                           </div>
                         ))}
                     </dl>
@@ -241,7 +241,7 @@ export function DataCopilot({
                   <div className="copilot-sources">
                     <span>Sources</span>
                     {message.sources.map((source) => (
-                      <a href={source.url} target="_blank" rel="noreferrer" key={source.id} title={source.title}>
+                      <a className="mono" href={source.url} target="_blank" rel="noreferrer" key={source.id} title={source.title}>
                         {source.id}
                       </a>
                     ))}

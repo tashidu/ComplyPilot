@@ -64,8 +64,8 @@ export function PeriodCloseView({
 
       <article className="card pad close-card">
         <div className="card-head">
-          <div><h2>Closing gates</h2><p>{period.startDate} to {period.endDate} · return due {period.returnDueDate}</p></div>
-          <strong>{gates.filter((gate) => gate.ok).length}/{gates.length}</strong>
+          <div><h2>Closing gates</h2><p><span className="mono">{period.startDate}</span> to <span className="mono">{period.endDate}</span> · return due <span className="mono">{period.returnDueDate}</span></p></div>
+          <strong className="mono">{gates.filter((gate) => gate.ok).length}/{gates.length}</strong>
         </div>
         <div className="close-gates">
           {gates.map((gate) => (
@@ -79,7 +79,7 @@ export function PeriodCloseView({
 
         {approved ? (
           <div className="period-approved">
-            <div><strong>Approved by {period.approvedBy}</strong><span>{period.approvedAt ? new Date(period.approvedAt).toLocaleString("en-LK") : "Approval recorded"}</span></div>
+            <div><strong>Approved by {period.approvedBy}</strong><span className={period.approvedAt ? "mono" : ""}>{period.approvedAt ? new Date(period.approvedAt).toLocaleString("en-LK") : "Approval recorded"}</span></div>
             <button className="button primary" onClick={onContinue}>Continue to mock filing</button>
           </div>
         ) : (

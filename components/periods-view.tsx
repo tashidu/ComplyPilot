@@ -93,9 +93,9 @@ export function PeriodsView({
                 <span className={`tag ${period.status === "SUBMITTED" ? "ok" : period.status === "NEEDS_REVIEW" ? "warn" : "brand"}`}>{STATUS_LABELS[period.status]}</span>
               </div>
               <div className="period-dates">
-                <span><small>Period</small><strong>{period.startDate} → {period.endDate}</strong></span>
-                <span><small>Payment due</small><strong>{period.paymentDueDate}</strong></span>
-                <span><small>Return due</small><strong>{period.returnDueDate}</strong></span>
+                <span><small>Period</small><strong className="mono">{period.startDate} → {period.endDate}</strong></span>
+                <span><small>Payment due</small><strong className="mono">{period.paymentDueDate}</strong></span>
+                <span><small>Return due</small><strong className="mono">{period.returnDueDate}</strong></span>
               </div>
               <div className="chip-row"><span className="chip">{documents} documents</span><span className={`chip ${openTasks ? "" : "ready"}`}>{openTasks} open tasks</span></div>
               <div className="form-actions">

@@ -78,6 +78,14 @@ export function RescueSimulator({
   return (
     <article className="card pad rescue-sim">
       <div className="card-head">
+        <div className="card-head-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 15V5M10 15V9M17 15V3" />
+            <circle cx="3" cy="7" r="1.6" fill="currentColor" stroke="none" />
+            <circle cx="10" cy="11" r="1.6" fill="currentColor" stroke="none" />
+            <circle cx="17" cy="5" r="1.6" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
         <div>
           <h2>Refund Rescue Simulator</h2>
           <p>Select rescue actions to preview their combined effect, then save them as owned tasks for evidence-backed completion.</p>
@@ -95,19 +103,19 @@ export function RescueSimulator({
           <div className="rescue-bridge">
             <div className="rescue-bridge-side">
               <span className="subtle">Actual position</span>
-              <strong>{actualScore}/100</strong>
-              <span>{formatLkr(actualLkr)} at risk</span>
+              <strong className="mono">{actualScore}/100</strong>
+              <span>{formatLkr(actualLkr)} under review</span>
             </div>
             <div className="rescue-bridge-arrow" aria-hidden="true">
               →
             </div>
             <div className={`rescue-bridge-side${hasSelection ? " highlight" : ""}`}>
               <span className="subtle">{hasSelection ? "Selected what-if position" : "Select actions below"}</span>
-              <strong>
+              <strong className="mono">
                 {displayScore}/100
                 {loading ? " …" : ""}
               </strong>
-              <span>{formatLkr(displayLkr)} at risk</span>
+              <span>{formatLkr(displayLkr)} under review</span>
             </div>
           </div>
 

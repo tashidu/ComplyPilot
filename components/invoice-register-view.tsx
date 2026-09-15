@@ -68,14 +68,14 @@ export function InvoiceRegisterView({ workspace, profile, busy, onIssue, onVoid,
           return <article key={invoice.id} className={`invoice-row ${invoice.status.toLowerCase()}`}>
             <div className="invoice-row-main">
               <div>
-                <strong>{invoice.invoiceNumber}</strong>
-                <small>{invoice.invoiceDate} · {invoice.purchaserName} · TIN {invoice.purchaserTin}</small>
+                <strong className="mono">{invoice.invoiceNumber}</strong>
+                <small><span className="mono">{invoice.invoiceDate}</span> · {invoice.purchaserName} · TIN <span className="mono">{invoice.purchaserTin}</span></small>
                 <small>{VAT_TREATMENT_LABELS[invoice.treatment]} · {invoice.supplyType.toLowerCase()} · {invoice.lines.length} line{invoice.lines.length === 1 ? "" : "s"}{period ? ` · ${period.label}` : ""}</small>
               </div>
               <div className="invoice-row-amounts">
-                <span>Net <b>{money(invoice.netTotalLkr)}</b></span>
-                <span>VAT <b>{money(invoice.vatTotalLkr)}</b></span>
-                <span>Total <b>{money(invoice.grossTotalLkr)}</b></span>
+                <span>Net <b className="mono">{money(invoice.netTotalLkr)}</b></span>
+                <span>VAT <b className="mono">{money(invoice.vatTotalLkr)}</b></span>
+                <span>Total <b className="mono">{money(invoice.grossTotalLkr)}</b></span>
               </div>
               <span className={`tag ${invoice.status === "ISSUED" ? "ok" : invoice.status === "VOID" ? "bad" : "warn"}`}>{INVOICE_STATUS_LABELS[invoice.status]}</span>
             </div>
@@ -102,8 +102,19 @@ export function InvoiceRegisterView({ workspace, profile, busy, onIssue, onVoid,
   </>;
 }
 
+const METRIC_ICON: Record<string, { glyph: string; tone: string }> = {
+  ok: { glyph: "\u2713", tone: "mint" },
+  warn: { glyph: "\u270e", tone: "amber" },
+  bad: { glyph: "\u2715", tone: "red" },
+  brand: { glyph: "\u03a3", tone: "brand" },
+};
+
 function Metric({ label, value, detail, tone }: { label: string; value: string; detail: string; tone: string }) {
-  return <article className={`vat-metric ${tone}`}><span>{label}</span><strong>{value}</strong><small>{detail}</small></article>;
+  const icon = METRIC_ICON[tone] ?? METRIC_ICON.brand;
+  return <article className={`vat-metric ${tone}`}>
+    <div className={`metric-icon ${icon.tone}`} aria-hidden="true">{icon.glyph}</div>
+    <div><span>{label}</span><strong className="mono">{value}</strong><small>{detail}</small></div>
+  </article>;
 }
 
 function money(value: number) { return new Intl.NumberFormat("en-LK", { style: "currency", currency: "LKR", maximumFractionDigits: 2 }).format(value); }

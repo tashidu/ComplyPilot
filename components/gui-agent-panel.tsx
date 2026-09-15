@@ -143,7 +143,7 @@ export function GuiAgentPanel({
       ) : null}
 
       {error ? (
-        <div className="notice" style={{ marginBottom: 14, borderLeftColor: "var(--red)" }}>
+        <div className="notice alert" style={{ marginBottom: 14 }}>
           <span aria-hidden="true">!</span>
           <div>{error}</div>
         </div>
@@ -157,15 +157,20 @@ export function GuiAgentPanel({
               <img src={step.screenshot} alt={`Portal screen at step ${step.index}`} />
               <div className="agent-step-body">
                 <div className="agent-step-head">
-                  <span className="agent-step-index">{step.index}</span>
+                  <span className="agent-step-index mono">{step.index}</span>
                   <strong>
                     {ACTION_LABEL[step.action.action]}
-                    {step.action.targetId ? ` · ${step.action.targetId}` : ""}
+                    {step.action.targetId ? (
+                      <>
+                        {" · "}
+                        <span className="mono">{step.action.targetId}</span>
+                      </>
+                    ) : ""}
                   </strong>
                   <span className={`tag ${step.decidedBy === "qwen" ? "ok" : "warn"}`}>
                     {step.decidedBy === "qwen" ? "Qwen decided" : "Fallback"}
                   </span>
-                  <span className="agent-step-time">{step.time}</span>
+                  <span className="agent-step-time mono">{step.time}</span>
                 </div>
                 <p>{step.action.reason}</p>
               </div>
@@ -181,7 +186,7 @@ export function GuiAgentPanel({
           </strong>
           <p className="subtle" style={{ marginBottom: 10 }}>
             The agent stopped because an OTP must be entered by an authorised person. The demo
-            portal accepts <code>482913</code>.
+            portal accepts <code className="mono">482913</code>.
           </p>
           <div style={{ display: "flex", gap: 8 }}>
             <input
@@ -205,9 +210,9 @@ export function GuiAgentPanel({
 
       {run?.status === "completed" && run.acknowledgement ? (
         <div className="receipt" style={{ marginTop: 14 }}>
-          Portal acknowledgement: {run.acknowledgement}
+          Portal acknowledgement: <span className="mono">{run.acknowledgement}</span>
           <br />
-          Steps recorded: {run.steps.length}
+          Steps recorded: <span className="mono">{run.steps.length}</span>
           <br />
           Decided by: {run.mode === "LIVE_QWEN" ? "Qwen vision model" : "deterministic fallback"}
           <br />
@@ -216,7 +221,7 @@ export function GuiAgentPanel({
       ) : null}
 
       {run?.status === "failed" ? (
-        <div className="notice" style={{ marginTop: 14, borderLeftColor: "var(--red)" }}>
+        <div className="notice alert" style={{ marginTop: 14 }}>
           <span aria-hidden="true">!</span>
           <div>{run.error ?? "The agent could not complete the run."}</div>
         </div>

@@ -35,21 +35,21 @@ export function InvoiceInboxView({
       />
       <input ref={inputRef} className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp,image/bmp,.csv,text/csv" onChange={(event) => { onAddFiles(event.target.files); event.currentTarget.value = ""; }} />
       <div className="grid three">
-        <article className="card metric"><div className="metric-icon brand">↓</div><div><strong>{items.length}</strong><span>Saved period records</span></div></article>
-        <article className="card metric"><div className="metric-icon mint">✓</div><div><strong>{items.filter((item) => item.status === "MATCHED").length}</strong><span>Matched records</span></div></article>
-        <article className="card metric"><div className="metric-icon amber">!</div><div><strong>{review}</strong><span>Need attention</span></div></article>
+        <article className="card metric"><div className="metric-icon brand">↓</div><div><strong className="mono">{items.length}</strong><span>Saved period records</span></div></article>
+        <article className="card metric"><div className="metric-icon mint">✓</div><div><strong className="mono">{items.filter((item) => item.status === "MATCHED").length}</strong><span>Matched records</span></div></article>
+        <article className="card metric"><div className="metric-icon amber">!</div><div><strong className="mono">{review}</strong><span>Need attention</span></div></article>
       </div>
       <article className="card pad inbox-table-card">
         <div className="table-wrap">
           <table>
-            <thead><tr><th>Document</th><th>Supplier / type</th><th>Added</th><th style={{ textAlign: "right" }}>VAT</th><th>Status</th></tr></thead>
+            <thead><tr><th>Document</th><th>Supplier / type</th><th>Added</th><th className="text-right">VAT</th><th>Status</th></tr></thead>
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
-                  <td><strong>{item.reference}</strong><small>{item.fileName}</small></td>
+                  <td><strong className="mono">{item.reference}</strong><small>{item.fileName}</small></td>
                   <td>{item.supplierName ?? item.documentType.replaceAll("_", " ")}<small>{item.dataMode === "SYNTHETIC_DEMO" ? "Synthetic demo evidence" : "User-provided evidence"}</small></td>
-                  <td>{new Date(item.uploadedAt).toLocaleDateString("en-LK")}</td>
-                  <td style={{ textAlign: "right" }}>{money(item.vatAmountLkr)}</td>
+                  <td className="mono">{new Date(item.uploadedAt).toLocaleDateString("en-LK")}</td>
+                  <td className="text-right mono">{money(item.vatAmountLkr)}</td>
                   <td><span className={`tag ${item.status === "MATCHED" || item.status === "PROCESSED" ? "ok" : item.status === "FAILED" ? "alert" : "warn"}`}>{item.status.replaceAll("_", " ")}</span></td>
                 </tr>
               ))}
