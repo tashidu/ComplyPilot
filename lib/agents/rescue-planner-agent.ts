@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { resolveProvider } from "../ai/providers";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import type { Finding, RescueAction, RescuePlan, Score } from "../types";
@@ -21,11 +22,12 @@ async function qwenNarrative(
   simulatedScore: number,
   actualLkrAtRisk: number,
 ): Promise<z.infer<typeof NarrativeSchema> | null> {
-  const apiKey = process.env.DASHSCOPE_API_KEY;
-  if (!apiKey || actions.length === 0) return null;
-  const baseURL =
-    process.env.DASHSCOPE_BASE_URL || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
-  const model = process.env.QWEN_RESCUE_MODEL || process.env.QWEN_CHAT_MODEL || "qwen-plus";
+  // Explanatory work, so it follows the reasoning provider. The ranking and
+  // every figure in it are computed before this call; the model only puts the
+  // already-decided plan into words.
+  const provider = resolveProvider("reasoning");
+  if (!provider || actions.length === 0) return null;
+  const { apiKey, baseURL, model } = provider;
   const client = new OpenAI({ apiKey, baseURL, timeout: 20_000, maxRetries: 1 });
   const facts = {
     actualScore,

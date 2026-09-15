@@ -19,6 +19,11 @@ services:
       DASHSCOPE_BASE_URL: "${DASHSCOPE_BASE_URL:-https://dashscope-intl.aliyuncs.com/compatible-mode/v1}"
       QWEN_MODEL: "${QWEN_MODEL:-qwen-vl-plus}"
       QWEN_CHAT_MODEL: "${QWEN_CHAT_MODEL:-qwen-plus}"
+      # Conversational and explanatory tasks. Left blank, the copilot and the
+      # rescue narrative run on Qwen like everything else.
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      OPENAI_MODEL: "${OPENAI_MODEL:-gpt-4o}"
+      OPENAI_BASE_URL: "${OPENAI_BASE_URL:-https://api.openai.com/v1}"
       GUI_AGENT_HEADLESS: "${GUI_AGENT_HEADLESS:-true}"
       WORKFLOW_MODE: "${WORKFLOW_MODE:-local}"
       MULERUN_API_URL: "${MULERUN_API_URL:-}"

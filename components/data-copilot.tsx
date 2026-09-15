@@ -3,12 +3,14 @@
 import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from "react";
 
 type Source = { id: string; title: string; url: string };
-type ChatMode = "LIVE_QWEN" | "DEMO_FALLBACK";
+type ChatMode = "LIVE_MODEL" | "DEMO_FALLBACK";
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
   mode?: ChatMode;
+  /** Which model actually answered, e.g. "OpenAI gpt-4o". */
+  model?: string;
   fallbackReason?: string | null;
   sources?: Source[];
   toolsUsed?: string[];
@@ -49,7 +51,7 @@ export function DataCopilot({
 }: {
   runId: string;
   contextVersion: string;
-  onAuditEvent?: (mode: ChatMode) => void;
+  onAuditEvent?: (mode: ChatMode, model?: string) => void;
   /** Opens the matching form pre-filled with a draft the copilot prepared. */
   onApplyProposal?: (kind: Proposal["kind"], fields: Record<string, unknown>) => void;
 }) {
@@ -114,13 +116,14 @@ export function DataCopilot({
           role: "assistant",
           content: data.answer,
           mode,
+          model: data.model,
           fallbackReason: data.fallbackReason,
           sources: data.sources,
           toolsUsed: data.toolsUsed,
           proposals: data.proposals,
         },
       ]);
-      onAuditEvent?.(mode);
+      onAuditEvent?.(mode, data.model);
     } catch (error) {
       setMessages((current) => [
         ...current,
@@ -185,10 +188,10 @@ export function DataCopilot({
                   <p>{message.content}</p>
                   {message.mode ? (
                     <span
-                      className={`copilot-mode ${message.mode === "LIVE_QWEN" ? "live" : "fallback"}`}
+                      className={`copilot-mode ${message.mode === "LIVE_MODEL" ? "live" : "fallback"}`}
                       title={message.fallbackReason ?? undefined}
                     >
-                      {message.mode === "LIVE_QWEN" ? "Live Qwen" : "Demo fallback"}
+                      {message.mode === "LIVE_MODEL" ? message.model ?? "Live model" : "Demo fallback"}
                     </span>
                   ) : null}
                 </div>
