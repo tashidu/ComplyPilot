@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { z } from "zod";
 import { AUTH_SESSION_MAX_AGE, createAuthSession, registerUser } from "@/lib/auth/auth-store";
-import { AUTH_COOKIE } from "@/lib/http/session";
+import { AUTH_COOKIE, SESSION_COOKIE } from "@/lib/http/session";
+import { getOrCreateWorkspace, saveWorkspace } from "@/lib/workspace/workspace-store";
 
 export const runtime = "nodejs";
 
@@ -18,6 +20,12 @@ export async function POST(request: Request) {
     const parsed = RequestSchema.safeParse(await request.json().catch(() => null));
     if (!parsed.success) return NextResponse.json({ error: "Enter a valid name, email, phone, role and password of at least 8 characters." }, { status: 400 });
     const user = await registerUser(parsed.data);
+    const jar = await cookies();
+    const guestSessionId = jar.get(SESSION_COOKIE)?.value;
+    if (guestSessionId) {
+      const guestWorkspace = await getOrCreateWorkspace(guestSessionId);
+      await saveWorkspace(`USER-${user.id}`, { ...guestWorkspace, updatedAt: new Date().toISOString() });
+    }
     const token = await createAuthSession(user.id);
     const response = NextResponse.json({ user }, { status: 201 });
     response.cookies.set(AUTH_COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: AUTH_SESSION_MAX_AGE });

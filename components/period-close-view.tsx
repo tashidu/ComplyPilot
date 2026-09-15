@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { AnalyzeResult } from "@/lib/types";
 import type { BusinessProfile, BusinessWorkspace, VatPeriodRecord } from "@/lib/workspace/workspace";
+import { isProfileComplete } from "@/lib/workspace/profile-readiness";
 import { PageHead } from "./ui";
 
 export function PeriodCloseView({
@@ -33,12 +34,7 @@ export function PeriodCloseView({
 
   const documents = workspace.inbox.filter((item) => item.periodId === period.id);
   const tasks = workspace.tasks.filter((task) => task.periodId === period.id);
-  const profileReady = Boolean(
-    profile.legalName.trim()
-      && /^\d{9}$/.test(profile.tin)
-      && profile.vatRegistrationStatus === "ACTIVE"
-      && profile.authorisedReviewer.trim(),
-  );
+  const profileReady = isProfileComplete(profile);
   const documentsReady = documents.length > 0;
   const tasksReady = tasks.every((task) => task.status === "COMPLETED");
   const analysisReady = result.workflow.gate === "READY_TO_FILE" && result.runId === period.runId;

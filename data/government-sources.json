@@ -149,6 +149,45 @@
     "note": "Reference workflow for filing returns and schedules through IRD e-Services."
   },
   {
+    "id": "IRD-VAT-WEBAPI-NOTICE-2026",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "Notice SEC/PN/VAT/2026-03 — National e-Invoicing Web API",
+    "category": "filing-api",
+    "url": "https://www.ird.gov.lk/en/Lists/Latest%20News%20%20Notices/Attachments/781/PN_VAT_2026-03_E.pdf",
+    "publicationDate": "2026-05-04",
+    "effectiveFrom": null,
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Describes phased ERP-to-RAMIS Web API onboarding, current Schedule 01/04/07 scope, purchaser approval and the ramis.webapi@ird.gov.lk contact channel."
+  },
+  {
+    "id": "IRD-VAT-WEBAPI-GUIDE-2026",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "How to Submit Invoice via Web API — VAT Quick Guide",
+    "category": "filing-api",
+    "url": "https://www.ird.gov.lk/en/eServices/Lists/FilingReturns/Attachments/17/VAT_WEB_API_Quick_Guide_v0_1.pdf",
+    "publicationDate": "2026-01-01",
+    "effectiveFrom": null,
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Published flow uses SSID/password authentication to obtain JWT, then transmits invoice data for RAMIS processing and later schedule verification."
+  },
+  {
+    "id": "IRD-VAT-CIRCULAR-2026-03",
+    "authority": "Inland Revenue Department, Sri Lanka",
+    "title": "Circular SEC/2026/E/03 — Revised Tax Invoice Format",
+    "category": "tax-invoice",
+    "url": "https://www.ird.gov.lk/en/publications/Circulars_Circulars/SEC_2026_E_03_E.pdf",
+    "publicationDate": "2026-05-20",
+    "effectiveFrom": "2026-10-01",
+    "lastVerifiedAt": "2026-09-15",
+    "freshness": "current",
+    "legalWeight": "official-guidance",
+    "note": "Explains the revised invoice fields and numbering. Effective date is normalized to the later binding Gazette 2500/106."
+  },
+  {
     "id": "IRD-INACTIVE-VAT",
     "authority": "Inland Revenue Department, Sri Lanka",
     "title": "Inactive VAT Registration List",

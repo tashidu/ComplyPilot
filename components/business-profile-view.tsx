@@ -14,6 +14,8 @@ export type ProfileFormValue = Pick<
   | "tin"
   | "irdPinStatus"
   | "vatRegistrationStatus"
+  | "vatRegistrationEffectiveDate"
+  | "vatRegistrationCertificateRef"
   | "filingFrequency"
   | "industry"
   | "address"
@@ -34,6 +36,8 @@ const EMPTY_PROFILE: ProfileFormValue = {
   tin: "",
   irdPinStatus: "NOT_REQUESTED",
   vatRegistrationStatus: "NOT_SET",
+  vatRegistrationEffectiveDate: "",
+  vatRegistrationCertificateRef: "",
   filingFrequency: "MONTHLY",
   industry: "",
   address: "",
@@ -55,6 +59,8 @@ function formValue(profile: BusinessProfile): ProfileFormValue {
     tin: profile.tin,
     irdPinStatus: profile.irdPinStatus,
     vatRegistrationStatus: profile.vatRegistrationStatus,
+    vatRegistrationEffectiveDate: profile.vatRegistrationEffectiveDate,
+    vatRegistrationCertificateRef: profile.vatRegistrationCertificateRef,
     filingFrequency: profile.filingFrequency,
     industry: profile.industry,
     address: profile.address,
@@ -63,7 +69,7 @@ function formValue(profile: BusinessProfile): ProfileFormValue {
     financeEmail: profile.financeEmail,
     accountingSystem: profile.accountingSystem,
     authorisedReviewer: profile.authorisedReviewer,
-    ramisConnection: profile.ramisConnection === "LIVE_APPROVED" ? "ONBOARDING" : profile.ramisConnection,
+    ramisConnection: profile.ramisConnection,
   };
 }
 
@@ -108,6 +114,8 @@ export function BusinessProfileView({
       && /^\d{9}$/.test(value.tin)
       && value.irdPinStatus === "ACTIVE"
       && value.vatRegistrationStatus === "ACTIVE"
+      && value.vatRegistrationEffectiveDate
+      && value.vatRegistrationCertificateRef.trim()
       && value.address.trim()
       && value.contactPhone.trim()
       && value.financeEmail.trim()
@@ -195,6 +203,8 @@ export function BusinessProfileView({
               <option value="NOT_SET">Not set</option>
             </select>
           </label>
+          <label><span>VAT effective date — IRD confirmed</span><input type="date" value={value.vatRegistrationEffectiveDate} onChange={(event) => update("vatRegistrationEffectiveDate", event.target.value)} /></label>
+          <label><span>VAT certificate / acknowledgement reference</span><input placeholder="Do not enter an IRD password or PIN" value={value.vatRegistrationCertificateRef} onChange={(event) => update("vatRegistrationCertificateRef", event.target.value)} /></label>
           <label>
             <span>Return filing frequency</span>
             <select value={value.filingFrequency} onChange={(event) => update("filingFrequency", event.target.value as ProfileFormValue["filingFrequency"])}>
@@ -227,6 +237,7 @@ export function BusinessProfileView({
               <option value="SIMULATOR">RAMIS simulator</option>
               <option value="NOT_CONNECTED">Not connected</option>
               <option value="ONBOARDING">IRD onboarding in progress</option>
+              <option value="LIVE_APPROVED">IRD-approved Web API</option>
             </select>
           </label>
         </div>
