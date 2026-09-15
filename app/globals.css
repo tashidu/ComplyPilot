@@ -2426,7 +2426,8 @@ td small {
   border-radius: var(--r-tile);
   background: var(--bg);
   color: var(--t2);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: 12px;
   text-align: left;
   line-height: 1.7;

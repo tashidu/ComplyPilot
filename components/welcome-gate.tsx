@@ -116,6 +116,7 @@ export function WelcomeGate({
               <label>
                 Phone number
                 <input
+                  className="mono"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   required

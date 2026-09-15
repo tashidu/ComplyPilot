@@ -37,10 +37,10 @@ export function SubmissionHistoryView({
                 </div>
               </div>
               <dl className="submission-meta">
-                <div><dt>Acknowledgement</dt><dd>{submission.acknowledgement}</dd></div>
-                <div><dt>Readiness</dt><dd>{submission.readinessScore}/100</dd></div>
+                <div><dt>Acknowledgement</dt><dd className="mono">{submission.acknowledgement}</dd></div>
+                <div><dt>Readiness</dt><dd className="mono">{submission.readinessScore}/100</dd></div>
                 <div><dt>Submitted by</dt><dd>{submission.submittedBy}</dd></div>
-                <div><dt>Recorded</dt><dd>{new Date(submission.submittedAt).toLocaleString("en-LK")}</dd></div>
+                <div><dt>Recorded</dt><dd className="mono">{new Date(submission.submittedAt).toLocaleString("en-LK")}</dd></div>
               </dl>
             </article>
           );

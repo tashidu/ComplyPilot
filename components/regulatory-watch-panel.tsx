@@ -101,14 +101,14 @@ export function RegulatoryWatchPanel({
             </span>
             <div>
               <strong>{source.name}</strong>
-              <span>Last checked {source.lastSeen}</span>
+              <span>Last checked <span className="mono">{source.lastSeen}</span></span>
             </div>
           </div>
         ))}
       </div>
 
       <p className="subtle" style={{ marginTop: 10 }}>
-        Active rule pack: <strong>{state.activeVersion}</strong>
+        Active rule pack: <strong className="mono">{state.activeVersion}</strong>
         {state.approvedBy ? ` · approved by ${state.approvedBy} at ${state.approvedAt}` : ""}
       </p>
 
@@ -124,10 +124,12 @@ export function RegulatoryWatchPanel({
           <div className="card-head" style={{ marginBottom: 10 }}>
             <div>
               <h3 style={{ fontSize: 14 }}>
-                Change detected: {state.pending.currentVersion} → {state.pending.proposedVersion}
+                Change detected: <span className="mono">{state.pending.currentVersion}</span> →{" "}
+                <span className="mono">{state.pending.proposedVersion}</span>
               </h3>
               <p>
-                {state.pending.source} · detected {state.pending.detectedAt}
+                {state.pending.source} · detected{" "}
+                <span className="mono">{state.pending.detectedAt}</span>
               </p>
             </div>
             <span className="tag warn">Awaiting human review</span>
@@ -140,7 +142,7 @@ export function RegulatoryWatchPanel({
             <b>Impact on this case.</b> {state.pending.impact}
           </p>
           <p className="subtle" style={{ marginBottom: 12 }}>
-            Affected rules: {state.pending.affectedRuleIds.join(", ")}
+            Affected rules: <span className="mono">{state.pending.affectedRuleIds.join(", ")}</span>
           </p>
 
           <div className="approval">
@@ -175,7 +177,8 @@ export function RegulatoryWatchPanel({
       ) : (
         <div className="watch-change">
           <p style={{ fontSize: 13 }}>
-            No change is awaiting review. The active pack is <strong>{state.activeVersion}</strong>.
+            No change is awaiting review. The active pack is{" "}
+            <strong className="mono">{state.activeVersion}</strong>.
           </p>
           <button
             className="button small"

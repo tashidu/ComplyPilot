@@ -43,9 +43,9 @@ export function EvidenceView({
         <div className="card-head">
           <div>
             <h2>{chain.graphTitle}</h2>
-            <p>Rule {chain.ruleId} · pick another chain below to switch.</p>
+            <p>Rule <span className="mono">{chain.ruleId}</span> · pick another chain below to switch.</p>
           </div>
-          <span className="pill">Confidence {chain.confidence}%</span>
+          <span className="pill">Confidence <span className="mono">{chain.confidence}%</span></span>
         </div>
         <div className="graph">
           {chain.graph.map((node) => (
@@ -75,7 +75,7 @@ export function EvidenceView({
               <span className="eyebrow">{blocker.id}</span>
               <h3>{blocker.title}</h3>
               <p className="subtle">
-                Confidence {blocker.confidence}% · {status}
+                Confidence <span className="mono">{blocker.confidence}%</span> · {status}
               </p>
             </button>
           );
@@ -102,7 +102,7 @@ export function EvidenceView({
                   <small>{row.note}</small>
                 </td>
                 <td>{row.source}</td>
-                <td>{row.effective}</td>
+                <td className="mono">{row.effective}</td>
                 <td>
                   <span className={`tag ${row.fresh ? "ok" : "warn"}`}>
                     {row.fresh ? "Current" : "Outdated"}

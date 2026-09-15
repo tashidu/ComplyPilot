@@ -68,14 +68,14 @@ export function InvoiceRegisterView({ workspace, profile, busy, onIssue, onVoid,
           return <article key={invoice.id} className={`invoice-row ${invoice.status.toLowerCase()}`}>
             <div className="invoice-row-main">
               <div>
-                <strong>{invoice.invoiceNumber}</strong>
-                <small>{invoice.invoiceDate} · {invoice.purchaserName} · TIN {invoice.purchaserTin}</small>
+                <strong className="mono">{invoice.invoiceNumber}</strong>
+                <small><span className="mono">{invoice.invoiceDate}</span> · {invoice.purchaserName} · TIN <span className="mono">{invoice.purchaserTin}</span></small>
                 <small>{VAT_TREATMENT_LABELS[invoice.treatment]} · {invoice.supplyType.toLowerCase()} · {invoice.lines.length} line{invoice.lines.length === 1 ? "" : "s"}{period ? ` · ${period.label}` : ""}</small>
               </div>
               <div className="invoice-row-amounts">
-                <span>Net <b>{money(invoice.netTotalLkr)}</b></span>
-                <span>VAT <b>{money(invoice.vatTotalLkr)}</b></span>
-                <span>Total <b>{money(invoice.grossTotalLkr)}</b></span>
+                <span>Net <b className="mono">{money(invoice.netTotalLkr)}</b></span>
+                <span>VAT <b className="mono">{money(invoice.vatTotalLkr)}</b></span>
+                <span>Total <b className="mono">{money(invoice.grossTotalLkr)}</b></span>
               </div>
               <span className={`tag ${invoice.status === "ISSUED" ? "ok" : invoice.status === "VOID" ? "bad" : "warn"}`}>{INVOICE_STATUS_LABELS[invoice.status]}</span>
             </div>

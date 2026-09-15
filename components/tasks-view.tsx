@@ -79,9 +79,9 @@ export function TasksView({
       />
 
       <div className="grid three">
-        <article className="card metric"><div className="metric-icon amber">!</div><div><strong>{openCount}</strong><span>Open tasks</span></div></article>
-        <article className="card metric"><div className="metric-icon mint">✓</div><div><strong>{completedCount}</strong><span>Completed with evidence</span></div></article>
-        <article className="card metric"><div className="metric-icon brand">↗</div><div><strong>{tasks.filter((task) => task.selectedForAction).length}</strong><span>Saved from Rescue Simulator</span></div></article>
+        <article className="card metric"><div className="metric-icon amber">!</div><div><strong className="mono">{openCount}</strong><span>Open tasks</span></div></article>
+        <article className="card metric"><div className="metric-icon mint">✓</div><div><strong className="mono">{completedCount}</strong><span>Completed with evidence</span></div></article>
+        <article className="card metric"><div className="metric-icon brand">↗</div><div><strong className="mono">{tasks.filter((task) => task.selectedForAction).length}</strong><span>Saved from Rescue Simulator</span></div></article>
       </div>
 
       <div className="task-list">
@@ -101,7 +101,7 @@ export function TasksView({
                   <h2 style={{ marginTop: 8 }}>{task.title}</h2>
                   <p>{task.description}</p>
                 </div>
-                <strong>LKR {task.amountLkrM.toFixed(1)}M</strong>
+                <strong className="mono">LKR {task.amountLkrM.toFixed(1)}M</strong>
               </div>
 
               {complete ? (

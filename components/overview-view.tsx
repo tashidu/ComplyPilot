@@ -74,7 +74,7 @@ export function OverviewView({
 
       <div className="section-head">
         <h2>Score composition</h2>
-        <span className="tag brand">Formula v1.0</span>
+        <span className="tag brand">Formula <span className="mono">v1.0</span></span>
       </div>
       <article className="card pad">
         <div className="breakdown">
@@ -106,7 +106,7 @@ export function OverviewView({
 
       <div className="section-head">
         <h2>Live VAT Schedule reconciliation</h2>
-        <span className="tag brand">RECON-CSV-001</span>
+        <span className="tag brand mono">RECON-CSV-001</span>
       </div>
       <ScheduleReconciliationCard result={result} />
 
@@ -202,7 +202,7 @@ export function OverviewView({
                         ? "Resolved"
                         : finding.tag}
                   </span>
-                  <span className="tag">{finding.ruleId}</span>
+                  <span className="tag mono">{finding.ruleId}</span>
                 </div>
                 <p>
                   {inactive
@@ -453,9 +453,9 @@ function ScheduleReconciliationCard({ result }: { result: AnalyzeResult }) {
 
       {reconciliation.totals ? (
         <div className="schedule-totals">
-          <div><span>Net total</span><strong>{formatScheduleAmount(reconciliation.totals.netAmount)}</strong></div>
-          <div><span>VAT total</span><strong>{formatScheduleAmount(reconciliation.totals.vatAmount)}</strong></div>
-          <div><span>Gross total</span><strong>{formatScheduleAmount(reconciliation.totals.grossAmount)}</strong></div>
+          <div><span>Net total</span><strong className="mono">{formatScheduleAmount(reconciliation.totals.netAmount)}</strong></div>
+          <div><span>VAT total</span><strong className="mono">{formatScheduleAmount(reconciliation.totals.vatAmount)}</strong></div>
+          <div><span>Gross total</span><strong className="mono">{formatScheduleAmount(reconciliation.totals.grossAmount)}</strong></div>
         </div>
       ) : null}
 
@@ -476,9 +476,9 @@ function ScheduleReconciliationCard({ result }: { result: AnalyzeResult }) {
               {reconciliation.variances.map((variance) => (
                 <tr key={variance.field}>
                   <td><strong>{variance.label}</strong></td>
-                  <td>{variance.invoiceValue ?? "Missing"}</td>
-                  <td>{variance.scheduleValue ?? "Missing"}</td>
-                  <td>{variance.difference === null ? "—" : formatScheduleAmount(variance.difference)}</td>
+                  <td className="mono">{variance.invoiceValue ?? "Missing"}</td>
+                  <td className="mono">{variance.scheduleValue ?? "Missing"}</td>
+                  <td className="mono">{variance.difference === null ? "—" : formatScheduleAmount(variance.difference)}</td>
                 </tr>
               ))}
             </tbody>
@@ -513,7 +513,7 @@ function Metric({
         {icon}
       </div>
       <div>
-        <strong>{value}</strong>
+        <strong className="mono">{value}</strong>
         <span>{label}</span>
       </div>
     </article>

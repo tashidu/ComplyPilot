@@ -95,7 +95,7 @@ export function FilingView({
               <h2>Submission readiness</h2>
               <p>{periodLabel} must be closed by an authorised reviewer before the mock action is enabled.</p>
             </div>
-            <strong>{score}/100</strong>
+            <strong className="mono">{score}/100</strong>
           </div>
 
           <div className="checklist">

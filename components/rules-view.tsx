@@ -30,7 +30,7 @@ export function RulesView({
         eyebrow="Versioned compliance"
         title="Regulatory Time Machine"
         lead="See how the same evidence behaves before and after the revised invoice format becomes effective."
-        action={<span className="pill">Gazette 2481/22 · amended 2500/106</span>}
+        action={<span className="pill">Gazette <span className="mono">2481/22</span> · amended <span className="mono">2500/106</span></span>}
       />
 
       <div className="grid two">
@@ -130,17 +130,17 @@ export function RulesView({
           <div className="clock-step">
             <div className="clock-node">1</div>
             <strong>Taxable period ends</strong>
-            <span>31 Oct 2026</span>
+            <span className="mono">31 Oct 2026</span>
           </div>
           <div className="clock-step">
             <div className="clock-node">2</div>
             <strong>{notice2 ? "Notice 2 compliance" : "Proper filing"}</strong>
-            <span>{notice2 ? "7 Dec 2026" : "30 Nov 2026"}</span>
+            <span className="mono">{notice2 ? "7 Dec 2026" : "30 Nov 2026"}</span>
           </div>
           <div className="clock-step">
             <div className="clock-node">3</div>
             <strong>45-day target scenario</strong>
-            <span>{notice2 ? "21 Jan 2027" : "14 Jan 2027"}</span>
+            <span className="mono">{notice2 ? "21 Jan 2027" : "14 Jan 2027"}</span>
           </div>
         </div>
         <div className="notice" style={{ marginTop: 16 }}>

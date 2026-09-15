@@ -173,7 +173,7 @@ export function BusinessProfileView({
             }}
           >
             <strong>{profile.displayName}</strong>
-            <span>{profile.tin ? `TIN ${profile.tin}` : "TIN not added"}</span>
+            <span>{profile.tin ? <>TIN <span className="mono">{profile.tin}</span></> : "TIN not added"}</span>
             <small>{profile.isSynthetic ? "Synthetic demo profile" : profile.filingFrequency.toLowerCase()}</small>
           </button>
         ))}
@@ -210,8 +210,8 @@ export function BusinessProfileView({
               <option value="COMPANY">Company</option><option value="INDIVIDUAL_PROPRIETORSHIP">Individual / proprietorship</option><option value="PARTNERSHIP">Partnership</option><option value="OTHER">Other</option>
             </select>
           </label>
-          <label><span>Business Registration number</span><input value={value.businessRegistrationNumber} onChange={(event) => update("businessRegistrationNumber", event.target.value)} /></label>
-          <label><span>Incorporation / registration date</span><input type="date" value={value.incorporationDate} onChange={(event) => update("incorporationDate", event.target.value)} /></label>
+          <label><span>Business Registration number</span><input className="mono" value={value.businessRegistrationNumber} onChange={(event) => update("businessRegistrationNumber", event.target.value)} /></label>
+          <label><span>Incorporation / registration date</span><input className="mono" type="date" value={value.incorporationDate} onChange={(event) => update("incorporationDate", event.target.value)} /></label>
           <label>
             <span>Industry</span>
             <input value={value.industry} onChange={(event) => update("industry", event.target.value)} />
@@ -240,7 +240,7 @@ export function BusinessProfileView({
               <option value="NOT_SET">Not set</option>
             </select>
           </label>
-          <label><span>VAT effective date — IRD confirmed</span><input type="date" value={value.vatRegistrationEffectiveDate} onChange={(event) => update("vatRegistrationEffectiveDate", event.target.value)} /></label>
+          <label><span>VAT effective date — IRD confirmed</span><input className="mono" type="date" value={value.vatRegistrationEffectiveDate} onChange={(event) => update("vatRegistrationEffectiveDate", event.target.value)} /></label>
           <label><span>VAT certificate / acknowledgement reference</span><input className="mono" placeholder="Do not enter an IRD password or PIN" value={value.vatRegistrationCertificateRef} onChange={(event) => update("vatRegistrationCertificateRef", event.target.value)} /></label>
           <label>
             <span>Return filing frequency</span>

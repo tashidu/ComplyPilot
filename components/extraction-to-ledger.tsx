@@ -42,7 +42,7 @@ export function ExtractionToLedger({ extraction, profile, mode, onReview }: {
           <h2>Qwen Document Agent read this invoice</h2>
           <p>{mode === "LIVE_QWEN" ? "Extracted by the vision model from the uploaded image." : "Bundled synthetic demo case — no model call was made."}</p>
         </div>
-        <span className={`tag ${overallConfidence >= REVIEW_CONFIDENCE_THRESHOLD ? "ok" : "warn"}`}>{overallConfidence}% mean confidence</span>
+        <span className={`tag ${overallConfidence >= REVIEW_CONFIDENCE_THRESHOLD ? "ok" : "warn"}`}><span className="mono">{overallConfidence}%</span> mean confidence</span>
       </div>
 
       <div className={`extraction-direction ${direction.direction.toLowerCase()}`}>
@@ -56,7 +56,7 @@ export function ExtractionToLedger({ extraction, profile, mode, onReview }: {
           <div key={field.key} className={field.needsReview ? "needs-review" : ""}>
             <div className="extraction-field-head">
               <span>{field.label}</span>
-              <b>{field.confidence}%</b>
+              <b className="mono">{field.confidence}%</b>
             </div>
             <strong>{field.value === null || field.value === "" ? "— not read —" : String(field.value)}</strong>
             <div className="confidence-bar" role="presentation">
@@ -93,11 +93,11 @@ export function ExtractionToLedger({ extraction, profile, mode, onReview }: {
             <div>
               <span className="eyebrow">Proposed entry</span>
               <strong>{draft!.kind === "OUTPUT" ? "Output — sale" : "Input — local purchase"} · {VAT_TREATMENT_LABELS[draft!.treatment]}</strong>
-              <small>{draft!.invoiceNumber} · {draft!.invoiceDate} · {draft!.counterpartyName || "counterparty not read"}</small>
+              <small><span className="mono">{draft!.invoiceNumber}</span> · <span className="mono">{draft!.invoiceDate}</span> · {draft!.counterpartyName || "counterparty not read"}</small>
             </div>
             <div className="extraction-amounts">
-              <span>Net <b>{money(draft!.netAmountLkr)}</b></span>
-              {draft!.statedVatAmountLkr !== null ? <span>VAT as charged <b>{money(draft!.statedVatAmountLkr)}</b></span> : null}
+              <span>Net <b className="mono">{money(draft!.netAmountLkr)}</b></span>
+              {draft!.statedVatAmountLkr !== null ? <span>VAT as charged <b className="mono">{money(draft!.statedVatAmountLkr)}</b></span> : null}
             </div>
           </div>
 

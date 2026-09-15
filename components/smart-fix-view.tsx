@@ -9,24 +9,24 @@ type FieldValue = { value: string | number | boolean | null; confidence: number;
 
 /** Display order and label for every top-level invoice field. Line items are
  * shown separately; they are rarely what a compliance reviewer checks first. */
-const FIELD_ORDER: { key: string; label: string }[] = [
+const FIELD_ORDER: { key: string; label: string; mono?: boolean }[] = [
   { key: "invoiceTitle", label: "Invoice title" },
   { key: "sellerName", label: "Supplier name" },
-  { key: "sellerVatNumber", label: "Supplier TIN" },
+  { key: "sellerVatNumber", label: "Supplier TIN", mono: true },
   { key: "sellerAddress", label: "Supplier address" },
-  { key: "sellerTelephone", label: "Supplier telephone" },
+  { key: "sellerTelephone", label: "Supplier telephone", mono: true },
   { key: "buyerName", label: "Purchaser name" },
-  { key: "buyerTin", label: "Purchaser TIN" },
+  { key: "buyerTin", label: "Purchaser TIN", mono: true },
   { key: "buyerAddress", label: "Purchaser address" },
-  { key: "buyerTelephone", label: "Purchaser telephone" },
-  { key: "invoiceNumber", label: "Invoice serial number" },
-  { key: "invoiceDate", label: "Invoice date" },
-  { key: "supplyDate", label: "Date of supply" },
+  { key: "buyerTelephone", label: "Purchaser telephone", mono: true },
+  { key: "invoiceNumber", label: "Invoice serial number", mono: true },
+  { key: "invoiceDate", label: "Invoice date", mono: true },
+  { key: "supplyDate", label: "Date of supply", mono: true },
   { key: "placeOfSupply", label: "Place of supply" },
   { key: "currency", label: "Currency" },
-  { key: "netTotal", label: "Net total" },
-  { key: "vatTotal", label: "VAT total" },
-  { key: "grossTotal", label: "Gross total" },
+  { key: "netTotal", label: "Net total", mono: true },
+  { key: "vatTotal", label: "VAT total", mono: true },
+  { key: "grossTotal", label: "Gross total", mono: true },
   { key: "totalInWords", label: "Total in words" },
   { key: "paymentMode", label: "Payment mode" },
 ];
@@ -52,7 +52,7 @@ function FieldList({
 }) {
   return (
     <div className="field-list">
-      {FIELD_ORDER.map(({ key, label }) => {
+      {FIELD_ORDER.map(({ key, label, mono }) => {
         const field = fields[key];
         const other = compareAgainst?.[key];
         const changed = Boolean(compareAgainst) && String(field?.value ?? "") !== String(other?.value ?? "");
@@ -61,7 +61,7 @@ function FieldList({
           <div key={key} className={`field-row${changed ? " changed" : ""}`}>
             <span className="field-label">{label}</span>
             <span className="field-value">
-              <strong>{formatValue(field?.value)}</strong>
+              <strong className={mono ? "mono" : undefined}>{formatValue(field?.value)}</strong>
               <span className={`tag ${badge.tag}`}>{badge.label}</span>
             </span>
           </div>
@@ -88,7 +88,7 @@ function SummaryMetric({
         {icon}
       </div>
       <div>
-        <strong>{value}</strong>
+        <strong className="mono">{value}</strong>
         <span>{label}</span>
       </div>
     </article>
@@ -268,7 +268,8 @@ export function SmartFixView({
                     <div>
                       <h2>{action.label}</h2>
                       <p>
-                        Rule {action.ruleId} · effective {vatInvoiceRulePack.effectiveFrom}
+                        Rule <span className="mono">{action.ruleId}</span> · effective{" "}
+                        <span className="mono">{vatInvoiceRulePack.effectiveFrom}</span>
                       </p>
                     </div>
                     <span className={`tag ${action.decision === "AI_DRAFT" ? "ok" : "warn"}`}>
@@ -301,7 +302,7 @@ export function SmartFixView({
                   {sources.length > 0 ? (
                     <div className="chip-row">
                       {sources.map((source) => (
-                        <a key={source.id} className="chip" href={source.url} target="_blank" rel="noreferrer">
+                        <a key={source.id} className="chip mono" href={source.url} target="_blank" rel="noreferrer">
                           {source.id}
                         </a>
                       ))}

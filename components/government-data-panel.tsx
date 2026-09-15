@@ -44,14 +44,14 @@ export function GovernmentDataPanel() {
           <h2>Official government data pack</h2>
           <p>Versioned public sources used by the agents, with legal weight and freshness kept visible.</p>
         </div>
-        <span className="tag ok">Verified {formatDate(governmentDataSummary.lastVerifiedAt)}</span>
+        <span className="tag ok">Verified <span className="mono">{formatDate(governmentDataSummary.lastVerifiedAt)}</span></span>
       </div>
 
       <div className="government-stats" aria-label="Government data summary">
-        <div><strong>{governmentDataSummary.sourceCount}</strong><span>official sources</span></div>
-        <div><strong>{governmentDataSummary.mandatoryInvoiceFieldCount}</strong><span>mandatory invoice checks</span></div>
-        <div><strong>{vatSchedules.schedules.length}</strong><span>VAT schedule types</span></div>
-        <div><strong>{standardRate?.ratePercent ?? 18}%</strong><span>standard VAT reference</span></div>
+        <div><strong className="mono">{governmentDataSummary.sourceCount}</strong><span>official sources</span></div>
+        <div><strong className="mono">{governmentDataSummary.mandatoryInvoiceFieldCount}</strong><span>mandatory invoice checks</span></div>
+        <div><strong className="mono">{vatSchedules.schedules.length}</strong><span>VAT schedule types</span></div>
+        <div><strong className="mono">{standardRate?.ratePercent ?? 18}%</strong><span>standard VAT reference</span></div>
       </div>
 
       <div className="government-source-grid">
@@ -81,15 +81,15 @@ export function GovernmentDataPanel() {
       <div className="government-agent-uses">
         <div>
           <strong>Document Agent</strong>
-          <span>{vatInvoiceRulePack.version} · Gazette-backed field and format checks</span>
+          <span><span className="mono">{vatInvoiceRulePack.version}</span> · Gazette-backed field and format checks</span>
         </div>
         <div>
           <strong>Reconciliation Agent</strong>
-          <span>{vatSchedules.schedules.map((schedule) => schedule.id.replace("VAT-", "")).join(", ")} · schedule-to-evidence mapping</span>
+          <span><span className="mono">{vatSchedules.schedules.map((schedule) => schedule.id.replace("VAT-", "")).join(", ")}</span> · schedule-to-evidence mapping</span>
         </div>
         <div>
           <strong>Supplier Agent</strong>
-          <span>Inactive VAT list · snapshot dated {formatDate(inactiveVatSnapshot.effectiveDate)}</span>
+          <span>Inactive VAT list · snapshot dated <span className="mono">{formatDate(inactiveVatSnapshot.effectiveDate)}</span></span>
         </div>
       </div>
 

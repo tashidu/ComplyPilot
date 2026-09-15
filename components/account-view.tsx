@@ -48,7 +48,7 @@ export function AccountView({ user, onAuthenticated }: { user: AuthUser | null; 
           <div className="profile-card-details">
             <span className="tag ok">Signed in</span>
             <h2>{user.fullName}</h2>
-            <p>{user.email} · {user.phone}</p>
+            <p>{user.email} · <span className="mono">{user.phone}</span></p>
             <p className="subtle">Role: {user.role.replaceAll("_", " ").toLowerCase()}</p>
           </div>
           <button className="button" disabled={busy} onClick={logout}>{busy ? "Signing out…" : "Sign out"}</button>
@@ -82,7 +82,7 @@ export function AccountView({ user, onAuthenticated }: { user: AuthUser | null; 
             {mode === "register" ? (
               <div className="workspace-form-grid">
                 <label><span>Full name</span><input autoComplete="name" required value={form.fullName} onChange={(event) => setForm({ ...form, fullName: event.target.value })} /></label>
-                <label><span>Phone number</span><input autoComplete="tel" required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
+                <label><span>Phone number</span><input className="mono" autoComplete="tel" required value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} /></label>
                 <label className="span-two"><span>Your role</span><select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as UserRole })}><option value="OWNER">Business owner</option><option value="ACCOUNTANT">Accountant</option><option value="FINANCE">Finance team</option><option value="TAX_AGENT">Tax agent</option></select></label>
               </div>
             ) : null}
