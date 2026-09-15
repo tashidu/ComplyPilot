@@ -1,14 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { calculateInvoiceLine, invoiceSerial, totalInvoiceLines } from "@/lib/vat-operations";
 import type { BusinessProfile, GeneratedVatInvoice, VatPeriodRecord, VatSupplyType } from "@/lib/workspace/workspace";
+import { canOperateVat } from "@/lib/workspace/profile-readiness";
 import { PageHead } from "./ui";
 
 type LineDraft = { description: string; quantity: number; unitPriceLkr: number };
 export type VatInvoiceDraft = { invoiceDate: string; supplyDate: string; classificationCode: string; treatment: "STANDARD_18" | "ZERO_RATED"; supplyType: VatSupplyType; purchaserName: string; purchaserTin: string; purchaserAddress: string; placeOfSupply: string; paymentMode: string; lines: LineDraft[] };
 
-export function VatInvoiceBuilder({ profile, period, generated, onSave }: { profile: BusinessProfile; period: VatPeriodRecord; generated: GeneratedVatInvoice[]; onSave: (value: VatInvoiceDraft) => Promise<GeneratedVatInvoice | null> }) {
+export function VatInvoiceBuilder({ profile, period, generated, onSave, prefill }: { profile: BusinessProfile; period: VatPeriodRecord; generated: GeneratedVatInvoice[]; onSave: (value: VatInvoiceDraft) => Promise<GeneratedVatInvoice | null>; prefill?: { token: string; fields: Record<string, unknown> } | null }) {
   const [value, setValue] = useState<VatInvoiceDraft>({ invoiceDate: period.startDate, supplyDate: period.startDate, classificationCode: "BR01", treatment: "STANDARD_18", supplyType: "GOODS", purchaserName: "", purchaserTin: "", purchaserAddress: "", placeOfSupply: "", paymentMode: "Bank Transfer", lines: [{ description: "", quantity: 1, unitPriceLkr: 0 }] });
   const [saved, setSaved] = useState<GeneratedVatInvoice | null>(generated[0] ?? null);
   const [busy, setBusy] = useState(false);
@@ -20,8 +21,25 @@ export function VatInvoiceBuilder({ profile, period, generated, onSave }: { prof
   const previewNumber = (() => { try { return invoiceSerial(value.invoiceDate, value.classificationCode, generated.filter((item) => item.invoiceDate.slice(0, 7) === value.invoiceDate.slice(0, 7) && item.classificationCode === value.classificationCode).length + 1); } catch { return "YYMMM_CODE_#"; } })();
 
   function updateLine(index: number, patch: Partial<LineDraft>) { setValue((current) => ({ ...current, lines: current.lines.map((line, itemIndex) => itemIndex === index ? { ...line, ...patch } : line) })); }
+  // A draft the copilot prepared arrives here, not saved. It fills the form so
+  // the same review and the same save button apply as for anything typed by
+  // hand; the token makes each proposal land once.
+  const appliedPrefill = useRef<string | null>(null);
+  useEffect(() => {
+    if (!prefill || appliedPrefill.current === prefill.token) return;
+    appliedPrefill.current = prefill.token;
+    const f = prefill.fields as Partial<VatInvoiceDraft> & { lines?: LineDraft[] };
+    setValue((current) => ({
+      ...current,
+      ...Object.fromEntries(
+        Object.entries(f).filter(([key, v]) => key !== "lines" && v !== undefined && v !== ""),
+      ),
+      lines: Array.isArray(f.lines) && f.lines.length ? f.lines : current.lines,
+    }));
+  }, [prefill]);
+
   async function save() { setBusy(true); try { const result = await onSave(value); if (result) setSaved(result); } finally { setBusy(false); } }
-  const ready = profile.vatRegistrationStatus === "ACTIVE" && /^\d{9}$/.test(profile.tin) && /^\d{9}$/.test(value.purchaserTin) && value.purchaserName.trim().length >= 2 && value.purchaserAddress.trim().length >= 3 && value.lines.every((line) => line.description.trim().length >= 2 && line.quantity > 0 && line.unitPriceLkr > 0);
+  const ready = canOperateVat(profile) && /^\d{9}$/.test(profile.tin) && /^\d{9}$/.test(value.purchaserTin) && value.purchaserName.trim().length >= 2 && value.purchaserAddress.trim().length >= 3 && value.lines.every((line) => line.description.trim().length >= 2 && line.quantity > 0 && line.unitPriceLkr > 0);
 
   return <>
     <PageHead eyebrow="Gazette-aligned document" title="VAT Tax Invoice generator" lead="Create a deterministic LKR invoice with the required supplier, purchaser, serial, supply and VAT fields." action={saved ? <button className="button" onClick={() => window.print()}>Print latest invoice</button> : undefined} />

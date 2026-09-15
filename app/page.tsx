@@ -17,13 +17,18 @@ import { Sidebar, type ViewId } from "@/components/sidebar";
 import { SmartFixView } from "@/components/smart-fix-view";
 import { SubmissionHistoryView } from "@/components/submission-history-view";
 import { TasksView } from "@/components/tasks-view";
+import { RamisApiView, type RamisApiDraft } from "@/components/ramis-api-view";
+import { VatInvoiceBuilder, type VatInvoiceDraft } from "@/components/vat-invoice-builder";
+import { VatLedgerView, type VatTransactionDraft } from "@/components/vat-ledger-view";
+import { VatLifecycleView } from "@/components/vat-lifecycle-view";
+import { VatReturnView } from "@/components/vat-return-view";
 import { VatRegistrationView, type RegistrationDraft } from "@/components/vat-registration-view";
 import { Modal, Toast } from "@/components/ui";
 import { INITIAL_AUDIT, type AuditEvent } from "@/lib/demo";
 import { governmentSources } from "@/lib/government-data";
 import type { AnalyzeResult, DataMode } from "@/lib/types";
 import type { AuthUser } from "@/lib/auth/types";
-import type { BusinessWorkspace, WorkspaceTask } from "@/lib/workspace/workspace";
+import type { BusinessWorkspace, GeneratedVatInvoice, WorkspaceTask } from "@/lib/workspace/workspace";
 
 type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
 
@@ -31,7 +36,7 @@ type TaskDraft = Pick<WorkspaceTask, "assignedTo" | "evidenceNote" | "status">;
 const GUEST_CHOICE_KEY = "cp_guest_choice";
 
 export default function Page() {
-  const [view, setView] = useState<ViewId>("overview");
+  const [view, setView] = useState<ViewId>("lifecycle");
   const [futureRules, setFutureRules] = useState(true);
   const [resolved, setResolved] = useState<string[]>([]);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResult | null>(null);
@@ -42,6 +47,14 @@ export default function Page() {
    * been read, so the server render and the first client render agree.
    */
   const [guestChoice, setGuestChoice] = useState<boolean | null>(null);
+  /**
+   * A draft the copilot prepared, waiting to be reviewed in its form. The token
+   * makes each handover land once, so returning to the view later does not
+   * silently refill a form the user has since edited.
+   */
+  const [copilotDraft, setCopilotDraft] = useState<
+    { kind: "invoice_draft" | "ledger_draft"; token: string; fields: Record<string, unknown> } | null
+  >(null);
   const [workspaceError, setWorkspaceError] = useState("");
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -148,6 +161,20 @@ export default function Page() {
       setGuestChoice(false);
     }
   }, []);
+
+  const applyCopilotProposal = useCallback(
+    (kind: "invoice_draft" | "ledger_draft", fields: Record<string, unknown>) => {
+      setCopilotDraft({ kind, fields, token: `${kind}-${Date.now()}` });
+      navigate(kind === "invoice_draft" ? "invoice-builder" : "vat-ledger");
+      addAudit(
+        "agent",
+        kind === "invoice_draft" ? "Copilot drafted a tax invoice" : "Copilot drafted a ledger entry",
+        "Prepared for review in the form. Nothing was issued or recorded by the copilot.",
+      );
+      showToast("Draft opened for review - check it, then save");
+    },
+    [addAudit, navigate, showToast],
+  );
 
   const chooseGuest = useCallback(() => {
     try {
@@ -328,6 +355,36 @@ export default function Page() {
     if (updated) showToast("VAT registration progress saved");
     return Boolean(updated);
   }, [activeProfile, postWorkspaceAction, showToast]);
+
+  const confirmVatRegistration = useCallback(async (effectiveDate: string, certificateReference: string) => {
+    if (!activeProfile) return false;
+    const updated = await postWorkspaceAction({ action: "confirm_vat_registration", profileId: activeProfile.id, effectiveDate, certificateReference });
+    if (updated) showToast("VAT registration confirmation saved");
+    return Boolean(updated);
+  }, [activeProfile, postWorkspaceAction, showToast]);
+
+  const saveRamisApiProfile = useCallback(async (integration: RamisApiDraft) => {
+    if (!activeProfile) return false;
+    const updated = await postWorkspaceAction({ action: "save_ramis_api_profile", profileId: activeProfile.id, integration });
+    if (updated) showToast("RAMIS API onboarding record saved");
+    return Boolean(updated);
+  }, [activeProfile, postWorkspaceAction, showToast]);
+
+  const createVatTransaction = useCallback(async (transaction: VatTransactionDraft) => {
+    if (!activeProfile || !activePeriod) return false;
+    const updated = await postWorkspaceAction({ action: "create_vat_transaction", profileId: activeProfile.id, periodId: activePeriod.id, transaction });
+    if (updated) showToast("Transaction added to the VAT ledger");
+    return Boolean(updated);
+  }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
+
+  const createVatInvoice = useCallback(async (invoice: VatInvoiceDraft): Promise<GeneratedVatInvoice | null> => {
+    if (!activeProfile || !activePeriod) return null;
+    const updated = await postWorkspaceAction({ action: "create_vat_invoice", profileId: activeProfile.id, periodId: activePeriod.id, invoice });
+    if (!updated) return null;
+    const generated = updated.generatedInvoices.find((item) => item.profileId === activeProfile.id && item.periodId === activePeriod.id) ?? null;
+    if (generated) showToast(`${generated.invoiceNumber} generated and added to output VAT`);
+    return generated;
+  }, [activePeriod, activeProfile, postWorkspaceAction, showToast]);
 
   const createProfile = useCallback(async (profile: ProfileFormValue) => {
     const updated = await postWorkspaceAction({ action: "create_profile", profile });
@@ -532,8 +589,13 @@ export default function Page() {
           </div>
         </header>
         <div className="content">
+          {view === "lifecycle" ? <VatLifecycleView user={authUser} workspace={workspace} profile={activeProfile} onNavigate={navigate} /> : null}
           {view === "account" ? <AccountView user={authUser} onAuthenticated={setAuthUser} /> : null}
-          {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} /> : null}
+          {view === "vat-registration" ? <VatRegistrationView workspace={workspace} profile={activeProfile} onSave={saveVatRegistration} onOpenProfile={() => navigate("business")} onConfirmRegistration={confirmVatRegistration} /> : null}
+          {view === "ramis-api" ? <RamisApiView workspace={workspace} profile={activeProfile} onSave={saveRamisApiProfile} onOpenRegistration={() => navigate("vat-registration")} /> : null}
+          {view === "vat-ledger" ? <VatLedgerView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={createVatTransaction} onCreateInvoice={() => navigate("invoice-builder")} prefill={copilotDraft?.kind === "ledger_draft" ? copilotDraft : null} /> : null}
+          {view === "invoice-builder" ? <VatInvoiceBuilder profile={activeProfile} period={activePeriod} generated={workspace.generatedInvoices.filter((item) => item.profileId === activeProfile.id && item.periodId === activePeriod.id)} onSave={createVatInvoice} prefill={copilotDraft?.kind === "invoice_draft" ? copilotDraft : null} /> : null}
+          {view === "vat-return" ? <VatReturnView workspace={workspace} profile={activeProfile} period={activePeriod} onOpenLedger={() => navigate("vat-ledger")} onClosePeriod={() => navigate("period-close")} onFile={() => navigate("filing")} /> : null}
           {view === "overview" ? <OverviewView result={analyzeResult} futureRules={futureRules} files={inboxCount} onAddFiles={addFiles} onToggleResolve={(id) => navigate(id === "invoice" ? "smart-fix" : "tasks")} onQueueRescueActions={queueRescueActions} onOpenEvidence={openEvidence} onExportPassport={exportPassport} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
           {view === "inbox" ? <InvoiceInboxView workspace={workspace} profile={activeProfile} period={activePeriod} busy={uploading} onAddFiles={addFiles} /> : null}
           {view === "tasks" ? <TasksView workspace={workspace} profile={activeProfile} period={activePeriod} onSave={saveTask} onComplete={completeTask} onOpenSmartFix={() => navigate("smart-fix")} /> : null}
@@ -550,7 +612,7 @@ export default function Page() {
       </main>
       <Toast message={toast.message} show={toast.show} />
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} auditCount={audit.length} receiptNumber={receiptNumber} />
-      <DataCopilot runId={analyzeResult.runId} contextVersion={`${activeProfile.id}:${activePeriod.id}:${workspace.vatRegistrations.find((item) => item.profileId === activeProfile.id)?.updatedAt ?? "no-registration"}:${analyzeResult.dataMode}:${analyzeResult.mode}:${analyzeResult.workflow.mode}:${analyzeResult.score.total}:${analyzeResult.invoice?.invoiceNumber?.value ?? "no-invoice"}:${analyzeResult.scheduleReconciliation.status}:${analyzeResult.findings.map((finding) => `${finding.id}-${finding.status}`).join("|")}`} onAuditEvent={(mode) => addAudit("agent", "VAT Copilot answered from trusted context", mode === "LIVE_QWEN" ? "Qwen answered using the business, registration, case and official-reference context." : "A deterministic grounded fallback answered because live Qwen was unavailable.")} />
+      <DataCopilot runId={analyzeResult.runId} contextVersion={`${activeProfile.id}:${activePeriod.id}:${workspace.vatRegistrations.find((item) => item.profileId === activeProfile.id)?.updatedAt ?? "no-registration"}:${workspace.vatTransactions.filter((item) => item.periodId === activePeriod.id).length}:${workspace.generatedInvoices.length}:${analyzeResult.dataMode}:${analyzeResult.mode}:${analyzeResult.workflow.mode}:${analyzeResult.score.total}:${analyzeResult.invoice?.invoiceNumber?.value ?? "no-invoice"}:${analyzeResult.scheduleReconciliation.status}:${analyzeResult.findings.map((finding) => `${finding.id}-${finding.status}`).join("|")}`} onApplyProposal={applyCopilotProposal} onAuditEvent={(mode) => addAudit("agent", "VAT Copilot answered from trusted context", mode === "LIVE_QWEN" ? "Qwen answered using the business, registration, case and official-reference context." : "A deterministic grounded fallback answered because live Qwen was unavailable.")} />
     </div>
   );
 }
