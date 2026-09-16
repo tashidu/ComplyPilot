@@ -43,6 +43,19 @@ describe("reading the invoice date", () => {
     expect(parseExtractedDate("11/11/2026")).toEqual({ iso: "2026-11-11", ambiguous: false });
   });
 
+  it("reads a day-first date whose first part cannot be a month", () => {
+    // 18 is not a month, so "18-10-2026" has exactly one reading. Refusing it
+    // stalled the pipeline on invoices printed the way most suppliers print
+    // them, even though the date was in no doubt.
+    expect(parseExtractedDate("18-10-2026")).toEqual({ iso: "2026-10-18", ambiguous: false });
+    expect(parseExtractedDate("18/10/2026")).toEqual({ iso: "2026-10-18", ambiguous: false });
+    expect(parseExtractedDate("31-12-2026")).toEqual({ iso: "2026-12-31", ambiguous: false });
+  });
+
+  it("reads the prescribed form with a dash separator too", () => {
+    expect(parseExtractedDate("10-25-2026")).toEqual({ iso: "2026-10-25", ambiguous: false });
+  });
+
   it("rejects an impossible or unreadable date rather than guessing", () => {
     expect(parseExtractedDate("13/25/2026").iso).toBeNull();
     expect(parseExtractedDate("02/30/2026").iso).toBeNull();

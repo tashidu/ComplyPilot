@@ -1,5 +1,6 @@
 import type { InvoiceExtraction } from "./ai/extraction-schema";
 import { normaliseTin, resolveInvoiceDirection, type DirectionVerdict } from "./rules/invoice-direction";
+import { readInvoiceDate } from "./rules/rule-selection";
 import { roundMoney, STANDARD_VAT_RATE } from "./vat-operations";
 import type { BusinessProfile, VatSupplyType, VatTransactionKind, VatTreatment } from "./workspace/workspace";
 
@@ -66,32 +67,15 @@ function amount(field: { value: string | number | null } | undefined): number | 
 /**
  * Converts the extracted invoice date to the ISO form the ledger stores.
  *
- * The rule pack prescribes MM/DD/YYYY, so that is what is read. When both parts
- * are twelve or under the value is genuinely ambiguous - 10/12/2026 is either
- * October or December depending on who typed it - and that ambiguity is
- * reported rather than resolved by assumption, because the wrong month can put
- * the supply in the wrong VAT period.
+ * The reading itself is shared with the rule selector, so the ledger and the
+ * agent that picks the governing rule pack can never disagree about what a
+ * printed date says. Ambiguity is passed along rather than resolved here: the
+ * caller shows it to a person, because the wrong month can put the supply in
+ * the wrong VAT period.
  */
 export function parseExtractedDate(value: string): { iso: string | null; ambiguous: boolean } {
-  const trimmed = value.trim();
-  if (!trimmed) return { iso: null, ambiguous: false };
-
-  const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (iso) return { iso: trimmed, ambiguous: false };
-
-  const slashed = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
-  if (!slashed) return { iso: null, ambiguous: false };
-
-  const [, first, second, year] = slashed;
-  const month = Number(first);
-  const day = Number(second);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return { iso: null, ambiguous: false };
-
-  const padded = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-  const parsed = new Date(`${padded}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime()) || parsed.getUTCDate() !== day) return { iso: null, ambiguous: false };
-
-  return { iso: padded, ambiguous: day <= 12 && day !== month };
+  const { date, ambiguous } = readInvoiceDate(value);
+  return { iso: date ? date.toISOString().slice(0, 10) : null, ambiguous };
 }
 
 /**

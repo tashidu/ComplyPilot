@@ -97,6 +97,21 @@ describe("rule profile selected from the invoice date", () => {
     expect(selectInvoiceRuleProfile("09/20/2026").profile).toBe("historical");
   });
 
+  it("picks the governing rule pack from a day-first date", () => {
+    // The invoice that exposed this was dated 18-10-2026. October 2026 governs
+    // it, but the date could not be read, so no rule pack was asserted at all.
+    expect(selectInvoiceRuleProfile("18-10-2026").profile).toBe("v2026.10");
+    expect(selectInvoiceRuleProfile("18-10-2026").invoiceDate).toBe("2026-10-18");
+    expect(selectInvoiceRuleProfile("20-09-2026").profile).toBe("historical");
+    expect(selectInvoiceRuleProfile("18-10-2026").reason).toMatch(/falls on or after/);
+  });
+
+  it("still refuses to settle an order that is genuinely in doubt", () => {
+    // Both parts are 12 or under, so month-first stands as the rule pack
+    // prescribes; the ledger reports the doubt to a person separately.
+    expect(parseInvoiceDate("10-12-2026")?.toISOString().slice(0, 10)).toBe("2026-10-12");
+  });
+
   it("never asserts the later format when the date is missing or unreadable", () => {
     expect(selectInvoiceRuleProfile(null).profile).toBe("historical");
     expect(selectInvoiceRuleProfile("not a date").profile).toBe("historical");
@@ -121,7 +136,16 @@ describe("rule profile selected from the invoice date", () => {
 describe("date parsing", () => {
   it("rejects impossible calendar dates", () => {
     expect(parseInvoiceDate("02/31/2026")).toBeNull();
-    expect(parseInvoiceDate("13/01/2026")).toBeNull();
+    // Neither part can be a month, so there is no reading to fall back to.
+    expect(parseInvoiceDate("13/32/2026")).toBeNull();
     expect(parseInvoiceDate("")).toBeNull();
+    expect(parseInvoiceDate("last Tuesday")).toBeNull();
+  });
+
+  it("reads a date whose first part rules out the prescribed order", () => {
+    // "13/01/2026" was rejected here because 13 is not a month. It is the 13th
+    // of January and nothing else, and rejecting it cost the pipeline the one
+    // fact it needed to pick the governing rule pack.
+    expect(parseInvoiceDate("13/01/2026")?.toISOString().slice(0, 10)).toBe("2026-01-13");
   });
 });

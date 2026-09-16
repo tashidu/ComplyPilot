@@ -28,18 +28,57 @@ export type RuleProfileSelection = {
   invoiceDate: string | null;
 };
 
-/** Accepts ISO (YYYY-MM-DD) and the MM/DD/YYYY form the rule pack validates. */
-export function parseInvoiceDate(value: string | null | undefined): Date | null {
-  if (!value) return null;
+/**
+ * Reads a date as printed on an invoice.
+ *
+ * Extraction is told to copy dates exactly as printed rather than reformat
+ * them, so whatever convention the supplier used arrives here intact. The rule
+ * pack prescribes MM/DD/YYYY, so a two-part numeric date is read month first,
+ * and the separator may be a slash or a dash because both get printed.
+ *
+ * A first part above twelve cannot be a month. Such a date is day-first and
+ * can be read with certainty, so it is read: "18-10-2026" is the eighteenth of
+ * October and nothing else. Discarding it as unreadable - which is what this
+ * did - left the temporal agent unable to say which rule pack governed an
+ * invoice whose date was in no doubt at all, and every date printed the way
+ * most Sri Lankan suppliers print it landed in that hole.
+ *
+ * Reading it does not excuse it. A date printed day-first still breaks the
+ * prescribed format, and the document agent raises that separately.
+ *
+ * When both parts are twelve or under the order is genuinely unsettled and no
+ * reading is asserted over the other: that is reported, not guessed, because
+ * the wrong month can put the supply in the wrong VAT period.
+ */
+export function readInvoiceDate(value: string | null | undefined): {
+  date: Date | null;
+  ambiguous: boolean;
+} {
+  if (!value) return { date: null, ambiguous: false };
   const raw = value.trim();
 
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw);
-  if (iso) return asUtc(Number(iso[1]), Number(iso[2]), Number(iso[3]));
+  if (iso) {
+    return { date: asUtc(Number(iso[1]), Number(iso[2]), Number(iso[3])), ambiguous: false };
+  }
 
-  const slash = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(raw);
-  if (slash) return asUtc(Number(slash[3]), Number(slash[1]), Number(slash[2]));
+  const parts = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(raw);
+  if (!parts) return { date: null, ambiguous: false };
 
-  return null;
+  const first = Number(parts[1]);
+  const second = Number(parts[2]);
+  const year = Number(parts[3]);
+
+  const monthFirst = asUtc(year, first, second);
+  if (monthFirst) return { date: monthFirst, ambiguous: second <= 12 && second !== first };
+
+  // The prescribed reading is impossible, so the only one left is day first.
+  return { date: asUtc(year, second, first), ambiguous: false };
+}
+
+/** The date alone, for callers that do not act on the ambiguity. */
+export function parseInvoiceDate(value: string | null | undefined): Date | null {
+  return readInvoiceDate(value).date;
 }
 
 function asUtc(year: number, month: number, day: number): Date | null {
