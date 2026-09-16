@@ -169,7 +169,7 @@ export function DataCopilot({
             >
               {expanded ? "⤡" : "⤢"}
             </button>
-            <div className="copilot-mark" aria-hidden="true">CP</div>
+            <img src="/bot-icon.png" alt="Copilot" className="copilot-mark" aria-hidden="true" />
             <div className="copilot-head-text">
               <strong>VAT Copilot</strong>
               <span>Grounded in your profile + official sources</span>
@@ -291,7 +291,7 @@ export function DataCopilot({
         aria-expanded={open}
         aria-label={open ? "Close VAT copilot" : "Ask ComplyPilot about VAT"}
       >
-        <span className="copilot-launcher-mark">CP</span>
+        <img src="/bot-icon.png" alt="Copilot" className="copilot-launcher-mark" />
         <span>{open ? "Close" : "Ask VAT Copilot"}</span>
       </button>
     </>

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Invoice</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            color: #333;
+            background-color: #f9f9f9;
+            padding: 40px;
+            display: flex;
+            justify-content: center;
+        }
+        .invoice-box {
+            background-color: #fff;
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #111;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .supplier-details, .customer-details {
+            margin-bottom: 30px;
+        }
+        .supplier-details h2, .customer-details h2 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            color: #222;
+        }
+        .meta-data {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+        }
+        .meta-data div {
+            width: 48%;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        table th {
+            background-color: #f5f5f5;
+            font-weight: bold;
+            color: #333;
+        }
+        table td.right, table th.right {
+            text-align: right;
+        }
+        .totals {
+            width: 50%;
+            float: right;
+        }
+        .totals table th {
+            background-color: transparent;
+        }
+        .totals table th, .totals table td {
+            border-bottom: none;
+            padding: 8px 12px;
+        }
+        .totals table tr.final-total {
+            border-top: 2px solid #333;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-box">
+        <div class="header">
+            <div>
+                <div class="title">TAX INVOICE</div>
+                <div style="margin-top: 10px; color: #666;">Original for Recipient</div>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="margin: 0; color: #0052cc;">Ceylon Industrial Supplies (Pvt) Ltd</h2>
+                <p style="margin: 5px 0 0; color: #555; line-height: 1.5;">
+                    No 45, Industrial Estate, Biyagama<br>
+                    Sri Lanka<br>
+                    VAT Reg No: <strong>123456789</strong>
+                </p>
+            </div>
+        </div>
+
+        <div class="meta-data">
+            <div class="customer-details">
+                <p style="color: #777; margin: 0 0 5px; font-size: 12px; text-transform: uppercase;">Billed To</p>
+                <h2>ComplyPilot Demo Corp</h2>
+                <p style="margin: 5px 0 0; color: #555; line-height: 1.5;">
+                    120, Galle Road, Colombo 03<br>
+                    <!-- INTENTIONALLY OMITTING PURCHASER TIN FOR DEMO SMART FIX -->
+                    VAT Reg No: <span style="color: #999; font-style: italic;">Not Provided</span>
+                </p>
+            </div>
+            <div>
+                <table style="margin-bottom: 0;">
+                    <tr>
+                        <td style="border: none; padding: 4px 0; font-weight: bold;">Invoice No:</td>
+                        <td style="border: none; padding: 4px 0; text-align: right;">INV-2026-1024</td>
+                    </tr>
+                    <tr>
+                        <td style="border: none; padding: 4px 0; font-weight: bold;">Date:</td>
+                        <td style="border: none; padding: 4px 0; text-align: right;">18-10-2026</td>
+                    </tr>
+                    <tr>
+                        <td style="border: none; padding: 4px 0; font-weight: bold;">Due Date:</td>
+                        <td style="border: none; padding: 4px 0; text-align: right;">17-11-2026</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Description</th>
+                    <th class="right">Qty</th>
+                    <th class="right">Unit Price (LKR)</th>
+                    <th class="right">Amount (LKR)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Industrial Heavy Duty Racks</td>
+                    <td class="right">5</td>
+                    <td class="right">85,000.00</td>
+                    <td class="right">425,000.00</td>
+                </tr>
+                <tr>
+                    <td>Safety Gear Pack</td>
+                    <td class="right">10</td>
+                    <td class="right">4,500.00</td>
+                    <td class="right">45,000.00</td>
+                </tr>
+                <tr>
+                    <td>Forklift Maintenance Service</td>
+                    <td class="right">1</td>
+                    <td class="right">130,000.00</td>
+                    <td class="right">130,000.00</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="clearfix">
+            <div class="totals">
+                <table>
+                    <tr>
+                        <th>Subtotal:</th>
+                        <td class="right">600,000.00</td>
+                    </tr>
+                    <tr>
+                        <th>VAT (18%):</th>
+                        <td class="right">108,000.00</td>
+                    </tr>
+                    <tr class="final-total">
+                        <th>Total (LKR):</th>
+                        <td class="right">708,000.00</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div style="margin-top: 50px; font-size: 12px; color: #888; text-align: center;">
+            <p>This is a computer generated invoice and does not require a physical signature.</p>
+            <p>Thank you for your business!</p>
+        </div>
+    </div>
+</body>
+</html>

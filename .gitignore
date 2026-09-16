@@ -29,3 +29,11 @@ __pycache__/
 # the Schedule File Verifier is the Department's software, not ours, and a
 # public repo is not the place for its binaries.
 doc/
+
+# Scratch output from exercising the auth endpoints. Holds a real user id,
+# session token and password hash, so it must never reach the repo.
+auth_temp.txt
+
+# Office lock files. Present while a document is open, unreadable by git,
+# and enough to make `git add -A` fail outright.
+~$*

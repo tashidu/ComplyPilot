@@ -2464,10 +2464,11 @@ td small {
   flex: 0 0 auto;
   place-items: center;
   border-radius: 50%;
-  background: var(--primary-solid);
+  background: transparent;
   color: var(--primary-t);
   font-size: 11px;
   font-weight: 900;
+  object-fit: cover;
 }
 
 .copilot-launcher-mark {
