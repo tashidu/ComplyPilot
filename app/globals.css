@@ -4214,16 +4214,13 @@ td small {
 }
 
 .auth-brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 40px;
   height: 40px;
   flex: 0 0 auto;
   border-radius: var(--r-tile);
-  background: rgba(255, 255, 255, 0.95);
-  color: var(--primary-d);
-  font-weight: 800;
-  font-size: 15px;
+  background: transparent;
+  object-fit: contain;
 }
 
 .auth-brand strong {
@@ -5968,6 +5965,15 @@ td small {
 .schedule-ai-note > div { flex: 1; }
 .schedule-ai-note strong { font-size: 12.5px; }
 .schedule-ai-note p { margin: 2px 0 0; color: var(--t2); font-size: 11.5px; line-height: 1.5; }
+.brand-mark {
+  display: block;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 auto;
+  border-radius: var(--r-tile);
+  background: transparent;
+  object-fit: contain;
+}
 .schedule-ai-spark { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 auto; border-radius: 10px; background: var(--primary-solid); color: #fff; font-size: 10px; font-weight: 900; }
 .schedule-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
 .schedule-card { display: flex; align-items: center; gap: 13px; padding: 15px; border: 1px solid var(--line-soft); border-radius: var(--r-card); background: var(--surface); color: var(--t1); text-align: left; cursor: pointer; box-shadow: var(--e-card); }

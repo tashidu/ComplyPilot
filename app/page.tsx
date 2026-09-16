@@ -738,7 +738,7 @@ export default function Page() {
   if (!workspace || !activeProfile || !activePeriod || !analyzeResult) {
     return (
       <main className="workspace-loading">
-        <div className="brand-mark">CP</div>
+        <img src="/logo.png" alt="ComplyPilot" className="brand-mark" />
         <h1>{workspaceError ? "Workspace unavailable" : "Opening your VAT workspace…"}</h1>
         <p>{workspaceError || "Loading business profiles, VAT periods and the current analysis."}</p>
         {workspaceError ? <button className="button primary" onClick={() => window.location.reload()}>Retry</button> : null}

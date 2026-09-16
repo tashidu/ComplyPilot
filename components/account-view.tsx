@@ -100,7 +100,7 @@ export function AccountView({ user, onAuthenticated }: { user: AuthUser | null; 
 
       <aside className="auth-visual-pane" aria-hidden="true">
         <div className="auth-brand">
-          <div className="auth-brand-mark">CP</div>
+          <img src="/logo.png" alt="ComplyPilot" className="auth-brand-mark" />
           <div>
             <strong>ComplyPilot</strong>
             <small>RefundShield</small>

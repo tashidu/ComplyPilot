@@ -113,7 +113,7 @@ export function Sidebar({
   return (
     <aside className={`sidebar${collapsed ? " collapsed" : ""}`} aria-label="Primary">
       <div className="brand">
-        <div className="brand-mark">CP</div>
+        <img src="/logo.png" alt="ComplyPilot" className="brand-mark" />
         {collapsed ? null : (
           <div>
             <strong>ComplyPilot</strong>

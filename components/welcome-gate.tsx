@@ -57,7 +57,7 @@ export function WelcomeGate({
     <div className="gate">
       <div className="gate-card">
         <div className="gate-brand">
-          <span className="brand-mark">CP</span>
+          <img src="/logo.png" alt="ComplyPilot" className="brand-mark" />
           <div>
             <strong>ComplyPilot</strong>
             <small>REFUNDSHIELD</small>
