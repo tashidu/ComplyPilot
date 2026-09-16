@@ -172,8 +172,14 @@ npm run build
 # Chromium plus its system libraries, for the GUI filing agent
 sudo npx playwright install --with-deps chromium
 
-# the standalone server needs the static assets copied alongside it
+# The standalone server bundles server code only. The build output and the
+# public folder are served from beside it and must be copied in after every
+# build. Removing them first matters: `cp -r src dst` onto a directory that
+# already exists copies into it, so a redeploy would otherwise bury the assets
+# one level deeper and every stylesheet and image would 404.
+rm -rf .next/standalone/.next/static .next/standalone/public
 cp -r .next/static .next/standalone/.next/static
+cp -r public .next/standalone/public
 
 cd .next/standalone
 DASHSCOPE_API_KEY=... DASHSCOPE_BASE_URL=... QWEN_MODEL=... \
@@ -199,6 +205,22 @@ Then `sudo nginx -t && sudo systemctl reload nginx`.
 
 **5. Verify** the public IP in an incognito window, and confirm the header badge
 reads `LIVE QWEN` after uploading an invoice image.
+
+**Redeploying a change.** From the clone on the instance:
+
+```bash
+cd ~/ComplyPilot
+git pull
+npm ci            # only when dependencies changed
+npm run build
+rm -rf .next/standalone/.next/static .next/standalone/public
+cp -r .next/static .next/standalone/.next/static
+cp -r public .next/standalone/public
+pm2 restart complypilot
+```
+
+`pm2 restart` keeps the environment the process was started with, so the
+credentials passed on first start do not need repeating.
 
 ## Demo features
 
